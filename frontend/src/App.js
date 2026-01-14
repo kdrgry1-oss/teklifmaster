@@ -91,6 +91,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/customers"
+        element={
+          <ProtectedRoute>
+            <Customers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/quotes"
         element={
           <ProtectedRoute>
