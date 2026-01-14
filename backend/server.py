@@ -1055,6 +1055,101 @@ async def cancel_subscription(current_user: dict = Depends(get_auth_user)):
     
     return {"message": "Abonelik iptal edildi"}
 
+# ============== REPORTS ==============
+
+@api_router.get("/reports")
+async def get_reports(start_date: str = None, end_date: str = None, current_user: dict = Depends(get_auth_user)):
+    query = {"user_id": current_user["id"]}
+    
+    # Parse date range
+    if start_date and end_date:
+        try:
+            start = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            end = datetime.strptime(end_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+            query["created_at"] = {"$gte": start.isoformat(), "$lte": end.isoformat()}
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Geçersiz tarih formatı. YYYY-MM-DD kullanın.")
+    
+    # Get all quotes in date range
+    quotes = await db.quotes.find(query, {"_id": 0}).to_list(10000)
+    
+    # Calculate statistics
+    total_quotes = len(quotes)
+    
+    status_counts = {
+        "draft": 0,
+        "sent": 0,
+        "accepted": 0,
+        "rejected": 0
+    }
+    
+    total_value = 0
+    accepted_value = 0
+    pending_value = 0
+    rejected_value = 0
+    
+    for quote in quotes:
+        status = quote.get("status", "draft")
+        status_counts[status] = status_counts.get(status, 0) + 1
+        total_value += quote.get("total", 0)
+        
+        if status == "accepted":
+            accepted_value += quote.get("total", 0)
+        elif status in ["draft", "sent"]:
+            pending_value += quote.get("total", 0)
+        elif status == "rejected":
+            rejected_value += quote.get("total", 0)
+    
+    # Conversion rate
+    conversion_rate = (status_counts["accepted"] / total_quotes * 100) if total_quotes > 0 else 0
+    
+    # Top customers by accepted quote value
+    customer_values = {}
+    for quote in quotes:
+        if quote.get("status") == "accepted":
+            customer = quote.get("customer_name", "Bilinmeyen")
+            customer_values[customer] = customer_values.get(customer, 0) + quote.get("total", 0)
+    
+    top_customers = sorted(
+        [{"name": k, "total": v} for k, v in customer_values.items()],
+        key=lambda x: x["total"],
+        reverse=True
+    )[:10]
+    
+    # Monthly breakdown
+    monthly_data = {}
+    for quote in quotes:
+        created = quote.get("created_at", "")[:7]  # YYYY-MM
+        if created not in monthly_data:
+            monthly_data[created] = {"quotes": 0, "accepted": 0, "total": 0, "accepted_value": 0}
+        monthly_data[created]["quotes"] += 1
+        monthly_data[created]["total"] += quote.get("total", 0)
+        if quote.get("status") == "accepted":
+            monthly_data[created]["accepted"] += 1
+            monthly_data[created]["accepted_value"] += quote.get("total", 0)
+    
+    monthly_breakdown = [
+        {"month": k, **v} for k, v in sorted(monthly_data.items())
+    ]
+    
+    return {
+        "date_range": {
+            "start": start_date,
+            "end": end_date
+        },
+        "summary": {
+            "total_quotes": total_quotes,
+            "status_counts": status_counts,
+            "total_value": round(total_value, 2),
+            "accepted_value": round(accepted_value, 2),
+            "pending_value": round(pending_value, 2),
+            "rejected_value": round(rejected_value, 2),
+            "conversion_rate": round(conversion_rate, 1)
+        },
+        "top_customers": top_customers,
+        "monthly_breakdown": monthly_breakdown
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
