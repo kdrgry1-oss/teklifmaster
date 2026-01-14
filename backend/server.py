@@ -504,6 +504,61 @@ async def delete_bank_account(account_id: str, current_user: dict = Depends(get_
         raise HTTPException(status_code=404, detail="Banka hesabı bulunamadı")
     return {"message": "Banka hesabı silindi"}
 
+# ============== CUSTOMER ENDPOINTS ==============
+
+@api_router.get("/customers", response_model=List[CustomerResponse])
+async def get_customers(search: str = None, current_user: dict = Depends(get_auth_user)):
+    query = {"user_id": current_user["id"]}
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+            {"tax_number": {"$regex": search, "$options": "i"}}
+        ]
+    customers = await db.customers.find(query, {"_id": 0}).sort("name", 1).to_list(1000)
+    return customers
+
+@api_router.get("/customers/{customer_id}", response_model=CustomerResponse)
+async def get_customer(customer_id: str, current_user: dict = Depends(get_auth_user)):
+    customer = await db.customers.find_one({"id": customer_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not customer:
+        raise HTTPException(status_code=404, detail="Müşteri bulunamadı")
+    return customer
+
+@api_router.post("/customers", response_model=CustomerResponse)
+async def create_customer(customer_data: CustomerCreate, current_user: dict = Depends(get_auth_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    customer_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": current_user["id"],
+        **customer_data.model_dump(),
+        "created_at": now,
+        "updated_at": now
+    }
+    await db.customers.insert_one(customer_doc)
+    del customer_doc["_id"]
+    return customer_doc
+
+@api_router.put("/customers/{customer_id}", response_model=CustomerResponse)
+async def update_customer(customer_id: str, customer_data: CustomerCreate, current_user: dict = Depends(get_auth_user)):
+    existing = await db.customers.find_one({"id": customer_id, "user_id": current_user["id"]})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Müşteri bulunamadı")
+    
+    update_dict = customer_data.model_dump()
+    update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.customers.update_one({"id": customer_id}, {"$set": update_dict})
+    updated = await db.customers.find_one({"id": customer_id}, {"_id": 0})
+    return updated
+
+@api_router.delete("/customers/{customer_id}")
+async def delete_customer(customer_id: str, current_user: dict = Depends(get_auth_user)):
+    result = await db.customers.delete_one({"id": customer_id, "user_id": current_user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Müşteri bulunamadı")
+    return {"message": "Müşteri silindi"}
+
 # ============== QUOTE ENDPOINTS ==============
 
 async def get_next_quote_number(user_id: str) -> str:
