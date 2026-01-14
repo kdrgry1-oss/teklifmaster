@@ -135,6 +135,12 @@ const QuoteDetail = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <Link to={`/quotes/${quote.id}/edit`}>
+            <Button variant="outline" data-testid="edit-quote-btn">
+              <Edit2 className="w-4 h-4 mr-2" />
+              Düzenle
+            </Button>
+          </Link>
           <Button variant="outline" onClick={handleShareWhatsApp} data-testid="share-whatsapp-btn">
             <Share2 className="w-4 h-4 mr-2" />
             WhatsApp
