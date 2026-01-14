@@ -124,15 +124,51 @@ class QuoteItemCreate(BaseModel):
     discount_percent: float = 0.0
 
 class QuoteCreate(BaseModel):
+    customer_id: Optional[str] = None
     customer_name: str
     customer_email: Optional[str] = None
     customer_phone: Optional[str] = None
     customer_address: Optional[str] = None
+    customer_tax_number: Optional[str] = None
     items: List[QuoteItemCreate]
     bank_account_ids: List[str] = []
     validity_days: int = 30
     notes: Optional[str] = None
     include_vat: bool = True
+
+class QuoteUpdate(BaseModel):
+    customer_id: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+    customer_address: Optional[str] = None
+    customer_tax_number: Optional[str] = None
+    items: Optional[List[QuoteItemCreate]] = None
+    bank_account_ids: Optional[List[str]] = None
+    validity_days: Optional[int] = None
+    notes: Optional[str] = None
+    include_vat: Optional[bool] = None
+
+# Customer Models
+class CustomerCreate(BaseModel):
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    tax_number: Optional[str] = None
+    contact_person: Optional[str] = None
+
+class CustomerResponse(BaseModel):
+    id: str
+    user_id: str
+    name: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    tax_number: Optional[str] = None
+    contact_person: Optional[str] = None
+    created_at: str
+    updated_at: str
 
 class QuoteItemResponse(BaseModel):
     product_id: str
