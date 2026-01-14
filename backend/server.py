@@ -570,6 +570,10 @@ async def delete_quote(quote_id: str, current_user: dict = Depends(get_auth_user
 
 # ============== PDF GENERATION ==============
 
+def format_currency_pdf(amount):
+    """Format currency for PDF"""
+    return f"{amount:,.2f} TL".replace(",", "X").replace(".", ",").replace("X", ".")
+
 @api_router.get("/quotes/{quote_id}/pdf")
 async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_auth_user)):
     quote = await db.quotes.find_one({"id": quote_id, "user_id": current_user["id"]}, {"_id": 0})
@@ -582,373 +586,166 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
     created_date = datetime.fromisoformat(quote["created_at"].replace("Z", "+00:00")).strftime("%d.%m.%Y")
     validity_date = datetime.fromisoformat(quote["validity_date"].replace("Z", "+00:00")).strftime("%d.%m.%Y")
     
-    # Format currency
-    def format_currency(amount):
-        return f"₺{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    
-    # Generate items HTML
-    items_html = ""
-    for idx, item in enumerate(quote["items"], 1):
-        discount_str = f"-{item['discount_percent']}%" if item["discount_percent"] > 0 else "-"
-        items_html += f"""
-        <tr>
-            <td>{idx}</td>
-            <td>{item['product_name']}</td>
-            <td class="number">{item['quantity']} {item['unit']}</td>
-            <td class="number">{format_currency(item['unit_price'])}</td>
-            <td class="number">{discount_str}</td>
-            <td class="number">%{int(item['vat_rate'])}</td>
-            <td class="number">{format_currency(item['total'])}</td>
-        </tr>
-        """
-    
-    # Generate bank accounts HTML
-    bank_html = ""
-    if quote.get("bank_accounts"):
-        bank_html = '<div class="bank-section"><h3>Ödeme Bilgileri</h3><div class="bank-grid">'
-        for account in quote["bank_accounts"]:
-            bank_html += f"""
-            <div class="bank-card">
-                <div class="bank-name">{account['bank_name']}</div>
-                <div class="iban">{account['iban']}</div>
-                {f'<div class="holder">{account["account_holder"]}</div>' if account.get('account_holder') else ''}
-            </div>
-            """
-        bank_html += '</div></div>'
-    
-    # Company logo
-    logo_html = ""
-    if user.get("company_logo"):
-        logo_html = f'<img src="{user["company_logo"]}" class="logo" alt="Logo" />'
-    
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap');
-            
-            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-            
-            body {{
-                font-family: 'Inter', sans-serif;
-                font-size: 10pt;
-                color: #0F172A;
-                line-height: 1.5;
-                background: #fff;
-            }}
-            
-            .container {{
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 40px;
-            }}
-            
-            .header {{
-                display: flex;
-                justify-content: space-between;
-                align-items: flex-start;
-                margin-bottom: 40px;
-                padding-bottom: 20px;
-                border-bottom: 2px solid #F97316;
-            }}
-            
-            .logo {{ max-height: 60px; max-width: 200px; }}
-            
-            .company-info {{
-                text-align: left;
-            }}
-            
-            .company-name {{
-                font-family: 'Plus Jakarta Sans', sans-serif;
-                font-size: 18pt;
-                font-weight: 700;
-                color: #0F172A;
-                margin-bottom: 5px;
-            }}
-            
-            .company-details {{
-                font-size: 9pt;
-                color: #64748B;
-            }}
-            
-            .quote-info {{
-                text-align: right;
-            }}
-            
-            .quote-number {{
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 14pt;
-                font-weight: 600;
-                color: #F97316;
-                margin-bottom: 10px;
-            }}
-            
-            .quote-meta {{
-                font-size: 9pt;
-                color: #64748B;
-            }}
-            
-            .quote-meta strong {{
-                color: #0F172A;
-            }}
-            
-            .section {{
-                margin-bottom: 30px;
-            }}
-            
-            .section-title {{
-                font-family: 'Plus Jakarta Sans', sans-serif;
-                font-size: 11pt;
-                font-weight: 600;
-                color: #0F172A;
-                margin-bottom: 10px;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }}
-            
-            .customer-box {{
-                background: #F8FAFC;
-                padding: 15px;
-                border-radius: 6px;
-                border-left: 3px solid #F97316;
-            }}
-            
-            .customer-name {{
-                font-weight: 600;
-                font-size: 11pt;
-                margin-bottom: 5px;
-            }}
-            
-            .customer-details {{
-                font-size: 9pt;
-                color: #64748B;
-            }}
-            
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin-bottom: 20px;
-            }}
-            
-            th {{
-                background: #0F172A;
-                color: #fff;
-                padding: 12px 10px;
-                text-align: left;
-                font-size: 9pt;
-                font-weight: 600;
-                text-transform: uppercase;
-                letter-spacing: 0.3px;
-            }}
-            
-            th:first-child {{ border-radius: 6px 0 0 0; }}
-            th:last-child {{ border-radius: 0 6px 0 0; }}
-            
-            td {{
-                padding: 12px 10px;
-                border-bottom: 1px solid #E2E8F0;
-                font-size: 9pt;
-            }}
-            
-            tr:hover td {{ background: #F8FAFC; }}
-            
-            .number {{
-                font-family: 'JetBrains Mono', monospace;
-                text-align: right;
-            }}
-            
-            .totals {{
-                margin-left: auto;
-                width: 300px;
-            }}
-            
-            .total-row {{
-                display: flex;
-                justify-content: space-between;
-                padding: 8px 0;
-                border-bottom: 1px solid #E2E8F0;
-            }}
-            
-            .total-row.grand {{
-                border-top: 2px solid #0F172A;
-                border-bottom: none;
-                margin-top: 10px;
-                padding-top: 15px;
-            }}
-            
-            .total-label {{
-                font-weight: 500;
-            }}
-            
-            .total-value {{
-                font-family: 'JetBrains Mono', monospace;
-                font-weight: 600;
-            }}
-            
-            .grand .total-label {{
-                font-size: 12pt;
-                font-weight: 700;
-            }}
-            
-            .grand .total-value {{
-                font-size: 14pt;
-                color: #F97316;
-            }}
-            
-            .bank-section {{
-                margin-top: 30px;
-                padding-top: 20px;
-                border-top: 1px solid #E2E8F0;
-            }}
-            
-            .bank-section h3 {{
-                font-family: 'Plus Jakarta Sans', sans-serif;
-                font-size: 11pt;
-                font-weight: 600;
-                margin-bottom: 15px;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }}
-            
-            .bank-grid {{
-                display: flex;
-                gap: 15px;
-                flex-wrap: wrap;
-            }}
-            
-            .bank-card {{
-                background: #F8FAFC;
-                padding: 15px;
-                border-radius: 6px;
-                border: 1px solid #E2E8F0;
-                min-width: 200px;
-            }}
-            
-            .bank-name {{
-                font-weight: 600;
-                margin-bottom: 5px;
-            }}
-            
-            .iban {{
-                font-family: 'JetBrains Mono', monospace;
-                font-size: 10pt;
-                color: #0F172A;
-            }}
-            
-            .holder {{
-                font-size: 9pt;
-                color: #64748B;
-                margin-top: 5px;
-            }}
-            
-            .notes {{
-                margin-top: 30px;
-                padding: 15px;
-                background: #FFFBEB;
-                border-radius: 6px;
-                border-left: 3px solid #F59E0B;
-            }}
-            
-            .notes-title {{
-                font-weight: 600;
-                margin-bottom: 5px;
-            }}
-            
-            .footer {{
-                margin-top: 40px;
-                padding-top: 20px;
-                border-top: 1px solid #E2E8F0;
-                text-align: center;
-                font-size: 8pt;
-                color: #94A3B8;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="company-info">
-                    {logo_html}
-                    <div class="company-name">{user.get('company_name', '')}</div>
-                    <div class="company-details">
-                        {user.get('company_address', '') or ''}<br>
-                        {user.get('company_phone', '') or ''}<br>
-                        {f"VKN: {user.get('company_tax_number')}" if user.get('company_tax_number') else ''}
-                    </div>
-                </div>
-                <div class="quote-info">
-                    <div class="quote-number">{quote['quote_number']}</div>
-                    <div class="quote-meta">
-                        <strong>Tarih:</strong> {created_date}<br>
-                        <strong>Geçerlilik:</strong> {validity_date}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">Müşteri Bilgileri</div>
-                <div class="customer-box">
-                    <div class="customer-name">{quote['customer_name']}</div>
-                    <div class="customer-details">
-                        {quote.get('customer_address', '') or ''}<br>
-                        {quote.get('customer_phone', '') or ''}<br>
-                        {quote.get('customer_email', '') or ''}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <div class="section-title">Teklif Detayları</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Ürün/Hizmet</th>
-                            <th>Miktar</th>
-                            <th>Birim Fiyat</th>
-                            <th>İskonto</th>
-                            <th>KDV</th>
-                            <th>Toplam</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {items_html}
-                    </tbody>
-                </table>
-                
-                <div class="totals">
-                    <div class="total-row">
-                        <span class="total-label">Ara Toplam</span>
-                        <span class="total-value">{format_currency(quote['subtotal'])}</span>
-                    </div>
-                    <div class="total-row">
-                        <span class="total-label">KDV Toplamı</span>
-                        <span class="total-value">{format_currency(quote['total_vat'])}</span>
-                    </div>
-                    <div class="total-row grand">
-                        <span class="total-label">GENEL TOPLAM</span>
-                        <span class="total-value">{format_currency(quote['total'])}</span>
-                    </div>
-                </div>
-            </div>
-            
-            {bank_html}
-            
-            {f'<div class="notes"><div class="notes-title">Notlar</div>{quote["notes"]}</div>' if quote.get('notes') else ''}
-            
-            <div class="footer">
-                Bu teklif {validity_date} tarihine kadar geçerlidir. | QuoteMaster Pro ile oluşturuldu.
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    
-    # Generate PDF
+    # Create PDF buffer
     pdf_buffer = BytesIO()
-    HTML(string=html_content).write_pdf(pdf_buffer)
+    doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='Title2', fontSize=18, fontName='Helvetica-Bold', textColor=colors.HexColor('#0F172A'), spaceAfter=10))
+    styles.add(ParagraphStyle(name='Subtitle', fontSize=10, fontName='Helvetica', textColor=colors.HexColor('#64748B')))
+    styles.add(ParagraphStyle(name='QuoteNumber', fontSize=14, fontName='Helvetica-Bold', textColor=colors.HexColor('#F97316'), alignment=2))
+    styles.add(ParagraphStyle(name='SectionTitle', fontSize=11, fontName='Helvetica-Bold', textColor=colors.HexColor('#0F172A'), spaceBefore=20, spaceAfter=10))
+    styles.add(ParagraphStyle(name='Normal2', fontSize=9, fontName='Helvetica', textColor=colors.HexColor('#374151')))
+    styles.add(ParagraphStyle(name='Footer', fontSize=8, fontName='Helvetica', textColor=colors.HexColor('#94A3B8'), alignment=1))
+    
+    elements = []
+    
+    # Header Section
+    header_data = [
+        [
+            Paragraph(f"<b>{user.get('company_name', 'Sirket')}</b>", styles['Title2']),
+            Paragraph(quote['quote_number'], styles['QuoteNumber'])
+        ],
+        [
+            Paragraph(f"{user.get('company_address', '') or ''}<br/>{user.get('company_phone', '') or ''}<br/>{'VKN: ' + user.get('company_tax_number') if user.get('company_tax_number') else ''}", styles['Subtitle']),
+            Paragraph(f"<b>Tarih:</b> {created_date}<br/><b>Gecerlilik:</b> {validity_date}", styles['Subtitle'])
+        ]
+    ]
+    
+    header_table = Table(header_data, colWidths=[10*cm, 6*cm])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LINEBELOW', (0, 1), (-1, 1), 2, colors.HexColor('#F97316')),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 20))
+    
+    # Customer Section
+    elements.append(Paragraph("MUSTERI BILGILERI", styles['SectionTitle']))
+    customer_info = f"<b>{quote['customer_name']}</b><br/>"
+    if quote.get('customer_address'):
+        customer_info += f"{quote['customer_address']}<br/>"
+    if quote.get('customer_phone'):
+        customer_info += f"Tel: {quote['customer_phone']}<br/>"
+    if quote.get('customer_email'):
+        customer_info += f"Email: {quote['customer_email']}"
+    
+    customer_table = Table([[Paragraph(customer_info, styles['Normal2'])]], colWidths=[16*cm])
+    customer_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+    ]))
+    elements.append(customer_table)
+    elements.append(Spacer(1, 20))
+    
+    # Items Section
+    elements.append(Paragraph("TEKLIF DETAYLARI", styles['SectionTitle']))
+    
+    # Items table header
+    items_data = [['#', 'Urun/Hizmet', 'Miktar', 'Birim Fiyat', 'Iskonto', 'KDV', 'Toplam']]
+    
+    for idx, item in enumerate(quote["items"], 1):
+        discount_str = f"%{item['discount_percent']}" if item["discount_percent"] > 0 else "-"
+        items_data.append([
+            str(idx),
+            item['product_name'],
+            f"{item['quantity']} {item['unit']}",
+            format_currency_pdf(item['unit_price']),
+            discount_str,
+            f"%{int(item['vat_rate'])}",
+            format_currency_pdf(item['total'])
+        ])
+    
+    items_table = Table(items_data, colWidths=[1*cm, 5*cm, 2*cm, 2.5*cm, 1.5*cm, 1.5*cm, 2.5*cm])
+    items_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F172A')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 8),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+    ]))
+    elements.append(items_table)
+    elements.append(Spacer(1, 10))
+    
+    # Totals Section
+    totals_data = [
+        ['Ara Toplam:', format_currency_pdf(quote['subtotal'])],
+        ['KDV Toplami:', format_currency_pdf(quote['total_vat'])],
+        ['GENEL TOPLAM:', format_currency_pdf(quote['total'])],
+    ]
+    
+    totals_table = Table(totals_data, colWidths=[10*cm, 6*cm])
+    totals_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 0), (-1, 1), 'Helvetica'),
+        ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 1), 9),
+        ('FONTSIZE', (0, 2), (-1, 2), 12),
+        ('TEXTCOLOR', (1, 2), (1, 2), colors.HexColor('#F97316')),
+        ('LINEABOVE', (0, 2), (-1, 2), 2, colors.HexColor('#0F172A')),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(totals_table)
+    
+    # Bank Accounts Section
+    if quote.get("bank_accounts") and len(quote["bank_accounts"]) > 0:
+        elements.append(Spacer(1, 20))
+        elements.append(Paragraph("ODEME BILGILERI", styles['SectionTitle']))
+        
+        for account in quote["bank_accounts"]:
+            bank_info = f"<b>{account['bank_name']}</b><br/>IBAN: {account['iban']}"
+            if account.get('account_holder'):
+                bank_info += f"<br/>Hesap Sahibi: {account['account_holder']}"
+            
+            bank_table = Table([[Paragraph(bank_info, styles['Normal2'])]], colWidths=[16*cm])
+            bank_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+                ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+            ]))
+            elements.append(bank_table)
+            elements.append(Spacer(1, 5))
+    
+    # Notes Section
+    if quote.get('notes'):
+        elements.append(Spacer(1, 15))
+        elements.append(Paragraph("NOTLAR", styles['SectionTitle']))
+        notes_table = Table([[Paragraph(quote['notes'], styles['Normal2'])]], colWidths=[16*cm])
+        notes_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FFFBEB')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#FDE68A')),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ]))
+        elements.append(notes_table)
+    
+    # Footer
+    elements.append(Spacer(1, 30))
+    elements.append(Paragraph(f"Bu teklif {validity_date} tarihine kadar gecerlidir. | QuoteMaster Pro ile olusturuldu.", styles['Footer']))
+    
+    # Build PDF
+    doc.build(elements)
     pdf_buffer.seek(0)
     
     filename = f"Teklif_{quote['quote_number']}_{quote['customer_name'].replace(' ', '_')}.pdf"
