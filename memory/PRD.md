@@ -24,22 +24,29 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - [x] JWT tabanlı kullanıcı kimlik doğrulama (register/login)
 - [x] Kullanıcı profili ve şirket bilgileri yönetimi
 - [x] Logo yükleme (Base64)
-- [x] Ürün CRUD API'leri
+- [x] Ürün CRUD API'leri + **görsel yükleme**
 - [x] Excel import/export (/api/products/export/excel, /api/products/import/excel)
 - [x] Banka hesabı CRUD API'leri
+- [x] **Müşteri CRUD API'leri** (search destekli)
 - [x] Teklif oluşturma/listeleme/detay API'leri
+- [x] **Teklif düzenleme (PUT /api/quotes/{id})**
+- [x] **Müşteri vergi numarası desteği**
 - [x] Teklif hesaplama (satır iskonto, KDV dahil/hariç)
-- [x] PDF teklif oluşturma (ReportLab ile)
+- [x] PDF teklif oluşturma (ReportLab ile) + **vergi no gösterimi**
 - [x] Dashboard istatistikleri API
+- [x] **Rapor API'si** (tarih aralığı, dönüşüm oranı, ciro analizi)
 - [x] Iyzico abonelik mock entegrasyonu
 
 ### Frontend (React + Tailwind + shadcn/ui)
 - [x] Login/Register sayfası (split-screen tasarım)
 - [x] Dashboard (Bento grid, özet metrikler, son teklifler)
-- [x] Ürün Kataloğu (grid görünüm, arama, CRUD modali)
+- [x] Ürün Kataloğu (grid görünüm, arama, CRUD modali, **görsel yükleme**)
+- [x] **Müşteriler sayfası** (CRUD, arama - isim/email/VKN)
 - [x] Teklifler listesi (filtreleme, durum badge'leri)
-- [x] Yeni Teklif oluşturma (split-screen form, ürün seçimi, hesaplama)
-- [x] Teklif detay sayfası (PDF indirme, paylaşım butonları)
+- [x] Yeni Teklif oluşturma (**müşteri seçimi**, vergi no, **çoklu ürün seçimi/arama**)
+- [x] **Teklif düzenleme** (/quotes/:id/edit)
+- [x] Teklif detay sayfası (PDF indirme, paylaşım butonları, **düzenle butonu**)
+- [x] **Raporlar sayfası** (tarih aralığı, teklif sayıları, dönüşüm oranı, ciro, top müşteriler)
 - [x] Banka Hesapları yönetimi
 - [x] Şirket Ayarları sayfası (logo yükleme)
 - [x] Abonelik sayfası (mock ödeme formu)
@@ -54,13 +61,14 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - [ ] Şifre sıfırlama fonksiyonu
 
 ### P1 (Yüksek Öncelik)
-- [ ] Ürün görseli yükleme
-- [ ] Teklif düzenleme özelliği
-- [ ] Müşteri veritabanı
+- [x] ~~Ürün görseli yükleme~~ ✓
+- [x] ~~Teklif düzenleme özelliği~~ ✓
+- [x] ~~Müşteri veritabanı~~ ✓
 - [ ] Teklif şablonları
+- [ ] PDF'e şirket logosu ekleme
 
 ### P2 (Orta Öncelik)
-- [ ] Raporlama ve analitik dashboard
+- [x] ~~Raporlama ve analitik dashboard~~ ✓
 - [ ] Çoklu para birimi desteği
 - [ ] Teklif revizyon geçmişi
 - [ ] E-imza entegrasyonu
