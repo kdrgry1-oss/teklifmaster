@@ -1,0 +1,122 @@
+{
+  "timestamp": "2026-01-14T21:22:51.424617",
+  "total_tests": 19,
+  "passed_tests": 19,
+  "success_rate": 100.0,
+  "test_details": [
+    {
+      "test": "User Registration",
+      "success": true,
+      "details": "User created with trial status: True, trial_end_date: True",
+      "error": ""
+    },
+    {
+      "test": "User Login",
+      "success": true,
+      "details": "Login successful",
+      "error": ""
+    },
+    {
+      "test": "Get User Profile",
+      "success": true,
+      "details": "Profile retrieved: test_ade2ce99@test.com",
+      "error": ""
+    },
+    {
+      "test": "Update Company Settings",
+      "success": true,
+      "details": "Company settings updated",
+      "error": ""
+    },
+    {
+      "test": "Product Create",
+      "success": true,
+      "details": "Product created: Test Product",
+      "error": ""
+    },
+    {
+      "test": "Product Read",
+      "success": true,
+      "details": "Found 1 products",
+      "error": ""
+    },
+    {
+      "test": "Product Update",
+      "success": true,
+      "details": "Product updated successfully",
+      "error": ""
+    },
+    {
+      "test": "Excel Export",
+      "success": true,
+      "details": "Excel file exported, size: 5010 bytes",
+      "error": ""
+    },
+    {
+      "test": "Excel Import Endpoint",
+      "success": true,
+      "details": "Export working, import endpoint available",
+      "error": ""
+    },
+    {
+      "test": "Bank Account Create",
+      "success": true,
+      "details": "Bank account created: Test Bank",
+      "error": ""
+    },
+    {
+      "test": "Bank Account Read",
+      "success": true,
+      "details": "Found 1 bank accounts",
+      "error": ""
+    },
+    {
+      "test": "Quote Create",
+      "success": true,
+      "details": "Quote created: TKL-2026-0001, Total: 216.0",
+      "error": ""
+    },
+    {
+      "test": "Quote List",
+      "success": true,
+      "details": "Found 1 quotes",
+      "error": ""
+    },
+    {
+      "test": "Quote Detail",
+      "success": true,
+      "details": "Quote detail retrieved: Test Customer",
+      "error": ""
+    },
+    {
+      "test": "Quote PDF",
+      "success": true,
+      "details": "PDF generated, size: 3048 bytes",
+      "error": ""
+    },
+    {
+      "test": "Quote Status Update",
+      "success": true,
+      "details": "Status updated to 'sent'",
+      "error": ""
+    },
+    {
+      "test": "Dashboard Stats",
+      "success": true,
+      "details": "Stats: 1 products, 1 quotes",
+      "error": ""
+    },
+    {
+      "test": "Subscription Status",
+      "success": true,
+      "details": "Status: trial, Trial: True",
+      "error": ""
+    },
+    {
+      "test": "Mock Subscription Create",
+      "success": true,
+      "details": "Mock Iyzico subscription created",
+      "error": ""
+    }
+  ]
+}
