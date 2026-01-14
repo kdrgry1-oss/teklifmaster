@@ -123,6 +123,22 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/quotes/:id/edit"
+        element={
+          <ProtectedRoute>
+            <NewQuote />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <Reports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/bank-accounts"
         element={
           <ProtectedRoute>
