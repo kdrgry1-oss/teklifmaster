@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { quotesAPI, formatCurrency, formatDate } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -19,6 +19,7 @@ import {
   Calendar,
   FileText,
   Building,
+  Edit2,
 } from 'lucide-react';
 
 const statusConfig = {
