@@ -28,6 +28,7 @@ class QuoteMasterAPITester:
         self.created_products = []
         self.created_quotes = []
         self.created_banks = []
+        self.created_customers = []
 
     def log_result(self, test_name, success, details="", error=""):
         """Log test result"""
