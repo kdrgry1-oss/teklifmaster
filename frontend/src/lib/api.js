@@ -91,6 +91,7 @@ export const quotesAPI = {
   getAll: () => api.get('/quotes'),
   getById: (id) => api.get(`/quotes/${id}`),
   create: (data) => api.post('/quotes', data),
+  update: (id, data) => api.put(`/quotes/${id}`, data),
   updateStatus: (id, status) => api.put(`/quotes/${id}/status?status=${status}`),
   delete: (id) => api.delete(`/quotes/${id}`),
   getPdf: (id) => api.get(`/quotes/${id}/pdf`, { responseType: 'blob' }),
@@ -99,6 +100,11 @@ export const quotesAPI = {
 // Dashboard
 export const dashboardAPI = {
   getStats: () => api.get('/dashboard/stats'),
+};
+
+// Reports
+export const reportsAPI = {
+  get: (startDate, endDate) => api.get(`/reports?start_date=${startDate}&end_date=${endDate}`),
 };
 
 // Subscription
