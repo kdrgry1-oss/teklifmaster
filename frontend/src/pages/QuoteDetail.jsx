@@ -173,6 +173,12 @@ const QuoteDetail = () => {
                   <p className="text-sm text-slate-500">Müşteri</p>
                   <p className="font-medium">{quote.customer_name}</p>
                 </div>
+                {quote.customer_tax_number && (
+                  <div>
+                    <p className="text-sm text-slate-500">Vergi Numarası</p>
+                    <p className="font-medium font-mono">{quote.customer_tax_number}</p>
+                  </div>
+                )}
                 {quote.customer_email && (
                   <div>
                     <p className="text-sm text-slate-500">E-posta</p>
