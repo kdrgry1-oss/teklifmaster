@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-01-14T21:22:51.424617",
-  "total_tests": 19,
-  "passed_tests": 19,
+  "timestamp": "2026-01-14T23:02:59.940126",
+  "total_tests": 28,
+  "passed_tests": 28,
   "success_rate": 100.0,
   "test_details": [
     {
@@ -19,13 +19,43 @@
     {
       "test": "Get User Profile",
       "success": true,
-      "details": "Profile retrieved: test_ade2ce99@test.com",
+      "details": "Profile retrieved: test_97a3222f@test.com",
       "error": ""
     },
     {
       "test": "Update Company Settings",
       "success": true,
       "details": "Company settings updated",
+      "error": ""
+    },
+    {
+      "test": "Customer Create",
+      "success": true,
+      "details": "Customer created: Test Customer Company",
+      "error": ""
+    },
+    {
+      "test": "Customer Search by Name",
+      "success": true,
+      "details": "Found customer by name search",
+      "error": ""
+    },
+    {
+      "test": "Customer Search by Tax Number",
+      "success": true,
+      "details": "Found customer by tax number search",
+      "error": ""
+    },
+    {
+      "test": "Customer Update",
+      "success": true,
+      "details": "Customer updated successfully",
+      "error": ""
+    },
+    {
+      "test": "Customer Detail",
+      "success": true,
+      "details": "Customer detail with tax number retrieved",
       "error": ""
     },
     {
@@ -44,6 +74,12 @@
       "test": "Product Update",
       "success": true,
       "details": "Product updated successfully",
+      "error": ""
+    },
+    {
+      "test": "Product Image Upload",
+      "success": true,
+      "details": "Product image uploaded successfully",
       "error": ""
     },
     {
@@ -98,6 +134,24 @@
       "test": "Quote Status Update",
       "success": true,
       "details": "Status updated to 'sent'",
+      "error": ""
+    },
+    {
+      "test": "Quote Update",
+      "success": true,
+      "details": "Quote updated successfully",
+      "error": ""
+    },
+    {
+      "test": "Updated Quote PDF",
+      "success": true,
+      "details": "PDF generated with updated customer tax number",
+      "error": ""
+    },
+    {
+      "test": "Reports API",
+      "success": true,
+      "details": "Report generated: 1 quotes, 0.0% conversion rate",
       "error": ""
     },
     {
