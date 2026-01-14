@@ -420,6 +420,217 @@ class QuoteMasterAPITester:
         
         return False
 
+    def test_customer_crud_with_search(self):
+        """Test customer CRUD operations with search functionality"""
+        # Create customer with tax number
+        customer_data = {
+            "name": "Test Customer Company",
+            "email": "customer@testcompany.com",
+            "phone": "0212 555 0123",
+            "address": "Test Customer Address 123, Istanbul",
+            "tax_number": "1234567890",
+            "contact_person": "John Doe"
+        }
+        
+        success, response = self.make_request('POST', 'customers', customer_data, expect_status=200)
+        
+        if not success or not isinstance(response, requests.Response):
+            error_msg = response.text if hasattr(response, 'text') else str(response)
+            self.log_result("Customer Create", False, "", f"Create failed: {error_msg}")
+            return False
+        
+        try:
+            customer = response.json()
+            customer_id = customer.get('id')
+            if not customer_id:
+                self.log_result("Customer Create", False, "", "No customer ID in response")
+                return False
+            
+            self.log_result("Customer Create", True, f"Customer created: {customer.get('name')}")
+            
+            # Test customer search by name
+            success, response = self.make_request('GET', f'customers?search={customer_data["name"]}', expect_status=200)
+            if success and isinstance(response, requests.Response):
+                customers = response.json()
+                found_by_name = any(c.get('id') == customer_id for c in customers)
+                self.log_result("Customer Search by Name", found_by_name, f"Found customer by name search")
+            else:
+                self.log_result("Customer Search by Name", False, "", "Failed to search customers by name")
+                return False
+            
+            # Test customer search by tax number
+            success, response = self.make_request('GET', f'customers?search={customer_data["tax_number"]}', expect_status=200)
+            if success and isinstance(response, requests.Response):
+                customers = response.json()
+                found_by_tax = any(c.get('id') == customer_id for c in customers)
+                self.log_result("Customer Search by Tax Number", found_by_tax, f"Found customer by tax number search")
+            else:
+                self.log_result("Customer Search by Tax Number", False, "", "Failed to search customers by tax number")
+                return False
+            
+            # Test customer update
+            update_data = {**customer_data, "name": "Updated Test Customer", "contact_person": "Jane Smith"}
+            success, response = self.make_request('PUT', f'customers/{customer_id}', update_data, expect_status=200)
+            if success and isinstance(response, requests.Response):
+                updated_customer = response.json()
+                update_success = updated_customer.get('name') == "Updated Test Customer"
+                self.log_result("Customer Update", update_success, "Customer updated successfully")
+            else:
+                self.log_result("Customer Update", False, "", "Failed to update customer")
+                return False
+            
+            # Test customer detail retrieval
+            success, response = self.make_request('GET', f'customers/{customer_id}', expect_status=200)
+            if success and isinstance(response, requests.Response):
+                customer_detail = response.json()
+                has_tax_number = customer_detail.get('tax_number') == customer_data['tax_number']
+                self.log_result("Customer Detail", has_tax_number, "Customer detail with tax number retrieved")
+            else:
+                self.log_result("Customer Detail", False, "", "Failed to get customer detail")
+                return False
+            
+            # Store for cleanup and quote testing
+            self.created_customers = [customer_id]
+            return True
+            
+        except Exception as e:
+            self.log_result("Customer CRUD", False, "", f"JSON parse error: {str(e)}")
+            return False
+
+    def test_product_image_upload(self):
+        """Test product image upload functionality"""
+        if not self.created_products:
+            self.log_result("Product Image Upload", False, "", "No products available for image upload")
+            return False
+        
+        # Create a simple test image (1x1 pixel PNG in base64)
+        test_image_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\tpHYs\x00\x00\x0b\x13\x00\x00\x0b\x13\x01\x00\x9a\x9c\x18\x00\x00\x00\nIDATx\x9cc```\x00\x00\x00\x04\x00\x01\xdd\x8d\xb4\x1c\x00\x00\x00\x00IEND\xaeB`\x82'
+        
+        # Create temporary file
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp_file:
+            tmp_file.write(test_image_data)
+            tmp_file_path = tmp_file.name
+        
+        try:
+            # Upload image to first product
+            product_id = self.created_products[0]
+            with open(tmp_file_path, 'rb') as f:
+                files = {'file': ('test.png', f, 'image/png')}
+                success, response = self.make_request('POST', f'products/{product_id}/upload-image', files=files, expect_status=200)
+            
+            if success and isinstance(response, requests.Response):
+                try:
+                    result = response.json()
+                    has_image_url = 'image_url' in result and result['image_url'].startswith('data:image')
+                    self.log_result("Product Image Upload", has_image_url, "Product image uploaded successfully")
+                    return has_image_url
+                except Exception as e:
+                    self.log_result("Product Image Upload", False, "", f"JSON parse error: {str(e)}")
+            else:
+                error_msg = response.text if hasattr(response, 'text') else str(response)
+                self.log_result("Product Image Upload", False, "", f"Upload failed: {error_msg}")
+            
+        finally:
+            # Clean up temp file
+            import os
+            try:
+                os.unlink(tmp_file_path)
+            except:
+                pass
+        
+        return False
+
+    def test_quote_update_operations(self):
+        """Test quote update/edit functionality"""
+        if not self.created_quotes:
+            self.log_result("Quote Update", False, "", "No quotes available for update testing")
+            return False
+        
+        quote_id = self.created_quotes[0]
+        
+        # Test quote update
+        update_data = {
+            "customer_name": "Updated Customer Name",
+            "customer_tax_number": "9876543210",
+            "customer_email": "updated@customer.com",
+            "notes": "Updated quote notes",
+            "validity_days": 45
+        }
+        
+        success, response = self.make_request('PUT', f'quotes/{quote_id}', update_data, expect_status=200)
+        
+        if success and isinstance(response, requests.Response):
+            try:
+                updated_quote = response.json()
+                update_success = (
+                    updated_quote.get('customer_name') == update_data['customer_name'] and
+                    updated_quote.get('customer_tax_number') == update_data['customer_tax_number'] and
+                    updated_quote.get('notes') == update_data['notes']
+                )
+                self.log_result("Quote Update", update_success, "Quote updated successfully")
+                
+                # Test that PDF generation still works with updated data
+                success, response = self.make_request('GET', f'quotes/{quote_id}/pdf', expect_status=200)
+                if success and isinstance(response, requests.Response):
+                    is_pdf = response.headers.get('content-type', '').startswith('application/pdf')
+                    self.log_result("Updated Quote PDF", is_pdf, "PDF generated with updated customer tax number")
+                    return update_success and is_pdf
+                else:
+                    self.log_result("Updated Quote PDF", False, "", "Failed to generate PDF after update")
+                    return False
+                
+            except Exception as e:
+                self.log_result("Quote Update", False, "", f"JSON parse error: {str(e)}")
+        else:
+            error_msg = response.text if hasattr(response, 'text') else str(response)
+            self.log_result("Quote Update", False, "", f"Update failed: {error_msg}")
+        
+        return False
+
+    def test_reports_functionality(self):
+        """Test reports API with date range functionality"""
+        from datetime import datetime, timedelta
+        
+        # Test reports with date range
+        end_date = datetime.now().strftime('%Y-%m-%d')
+        start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+        
+        success, response = self.make_request('GET', f'reports?start_date={start_date}&end_date={end_date}', expect_status=200)
+        
+        if success and isinstance(response, requests.Response):
+            try:
+                report_data = response.json()
+                
+                # Check required report fields
+                required_fields = ['date_range', 'summary', 'top_customers', 'monthly_breakdown']
+                has_all_fields = all(field in report_data for field in required_fields)
+                
+                # Check summary fields
+                summary = report_data.get('summary', {})
+                summary_fields = ['total_quotes', 'status_counts', 'total_value', 'accepted_value', 'conversion_rate']
+                has_summary_fields = all(field in summary for field in summary_fields)
+                
+                # Check date range
+                date_range = report_data.get('date_range', {})
+                has_date_range = date_range.get('start') == start_date and date_range.get('end') == end_date
+                
+                report_success = has_all_fields and has_summary_fields and has_date_range
+                
+                self.log_result("Reports API", report_success, 
+                              f"Report generated: {summary.get('total_quotes', 0)} quotes, "
+                              f"{summary.get('conversion_rate', 0)}% conversion rate")
+                
+                return report_success
+                
+            except Exception as e:
+                self.log_result("Reports API", False, "", f"JSON parse error: {str(e)}")
+        else:
+            error_msg = response.text if hasattr(response, 'text') else str(response)
+            self.log_result("Reports API", False, "", f"Request failed: {error_msg}")
+        
+        return False
+
     def test_subscription_operations(self):
         """Test subscription status and mock subscription creation"""
         # Test subscription status
