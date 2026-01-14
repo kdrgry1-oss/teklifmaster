@@ -186,10 +186,12 @@ class QuoteResponse(BaseModel):
     id: str
     user_id: str
     quote_number: str
+    customer_id: Optional[str] = None
     customer_name: str
     customer_email: Optional[str] = None
     customer_phone: Optional[str] = None
     customer_address: Optional[str] = None
+    customer_tax_number: Optional[str] = None
     items: List[QuoteItemResponse]
     bank_accounts: List[BankAccountResponse] = []
     subtotal: float
