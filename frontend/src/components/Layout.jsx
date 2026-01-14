@@ -14,12 +14,16 @@ import {
   X,
   Building2,
   ChevronRight,
+  Users,
+  BarChart3,
 } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/products', label: 'Ürün Kataloğu', icon: Package },
+  { path: '/customers', label: 'Müşteriler', icon: Users },
   { path: '/quotes', label: 'Teklifler', icon: FileText },
+  { path: '/reports', label: 'Raporlar', icon: BarChart3 },
   { path: '/bank-accounts', label: 'Banka Hesapları', icon: CreditCard },
   { path: '/settings', label: 'Ayarlar', icon: Settings },
   { path: '/subscription', label: 'Abonelik', icon: Building2 },
