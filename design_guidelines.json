@@ -1,0 +1,164 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "QuoteMaster Pro",
+      "archetype": "The Executive (Swiss + High Contrast)",
+      "emotional_tone": "Trustworthy, Efficient, Professional, Fast",
+      "theme_strategy": "Strict Light Mode (Corporate Minimalist)"
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Plus Jakarta Sans, sans-serif",
+        "body": "Inter, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "imports": [
+        "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
+      ],
+      "scale": {
+        "h1": "text-4xl md:text-5xl font-bold tracking-tight",
+        "h2": "text-3xl font-semibold tracking-tight",
+        "h3": "text-2xl font-semibold tracking-tight",
+        "body": "text-sm md:text-base leading-relaxed",
+        "small": "text-xs font-medium tracking-wide uppercase text-muted-foreground"
+      }
+    },
+    "colors": {
+      "palette": {
+        "primary": {
+          "default": "hsl(222 47% 11%)",
+          "foreground": "hsl(210 40% 98%)",
+          "description": "Deep Navy - Represents Authority and Trust"
+        },
+        "secondary": {
+          "default": "hsl(210 40% 96.1%)",
+          "foreground": "hsl(222 47% 11%)",
+          "description": "Soft Slate - For secondary actions"
+        },
+        "accent": {
+          "default": "hsl(24 95% 53%)",
+          "foreground": "hsl(0 0% 100%)",
+          "description": "Vibrant Orange - For high-priority actions (Create Quote, Upgrade)"
+        },
+        "background": "hsl(210 40% 98%)",
+        "card": "hsl(0 0% 100%)",
+        "border": "hsl(214 32% 91%)",
+        "muted": "hsl(210 40% 96.1%)",
+        "destructive": "hsl(0 84.2% 60.2%)"
+      },
+      "usage_rules": [
+        "NEVER use gradients for backgrounds. Use solid colors or subtle noise.",
+        "Use Primary (Navy) for Sidebar and Main Headings.",
+        "Use Accent (Orange) ONLY for the primary 'Call to Action' (e.g., 'Create New Quote').",
+        "Backgrounds should be slightly off-white (Slate-50) to reduce eye strain, while Cards remain Pure White."
+      ]
+    },
+    "spacing": {
+      "container_padding": "p-6 md:p-8 lg:p-12",
+      "section_gap": "gap-8 md:gap-12",
+      "element_gap": "gap-4",
+      "radius": "0.3rem"
+    },
+    "shadows": {
+      "card": "shadow-[0_1px_2px_rgba(0,0,0,0.05),0_4px_6px_rgba(0,0,0,0.02)]",
+      "hover": "shadow-[0_10px_15px_-3px_rgba(0,0,0,0.08),0_4px_6px_-2px_rgba(0,0,0,0.04)]",
+      "dropdown": "shadow-xl border border-slate-100"
+    },
+    "visual_enhancers": {
+      "noise_texture": "opacity-20 pointer-events-none fixed inset-0 z-50 mix-blend-overlay bg-[url('https://grainy-gradients.vercel.app/noise.svg')]",
+      "glass_morphism": "bg-white/80 backdrop-blur-md border border-white/20 shadow-sm",
+      "tracing_beam": "Use for 'Pro Plan' cards or 'Active' states in navigation."
+    }
+  },
+  "layout_strategies": {
+    "dashboard": {
+      "type": "Bento Grid (High Density)",
+      "structure": "Sidebar (Fixed Left) + Header (Sticky Top) + Main Content (Scrollable)",
+      "grid_rules": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+      "widgets": {
+        "summary": "col-span-1 bg-white p-6 border border-slate-100 rounded-md",
+        "chart": "col-span-2 row-span-2 bg-white p-6 border border-slate-100 rounded-md",
+        "list": "col-span-1 row-span-2 bg-white p-0 border border-slate-100 rounded-md overflow-hidden"
+      }
+    },
+    "quote_builder": {
+      "type": "Split Screen",
+      "structure": "Left: Form Inputs (Scrollable) | Right: PDF Preview (Sticky)",
+      "ratio": "w-full lg:w-1/2"
+    },
+    "marketing": {
+      "type": "Asymmetric Grid",
+      "hero_alignment": "Left Aligned Text, Right Aligned Visual (3D or High-Res Image)"
+    }
+  },
+  "component_guidelines": {
+    "buttons": {
+      "primary": "bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-6 rounded-md font-medium transition-all active:scale-95",
+      "accent": "bg-accent text-accent-foreground hover:bg-accent/90 h-10 px-6 rounded-md font-bold shadow-md hover:shadow-lg transition-all active:scale-95",
+      "ghost": "hover:bg-slate-100 text-slate-700 hover:text-slate-900"
+    },
+    "cards": {
+      "style": "bg-white border border-slate-200 rounded-md shadow-sm hover:shadow-md transition-shadow duration-200",
+      "content_padding": "p-6"
+    },
+    "inputs": {
+      "style": "h-10 rounded-md border-slate-200 bg-white px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    },
+    "tables": {
+      "style": "w-full caption-bottom text-sm",
+      "header": "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+      "row": "border-b transition-colors hover:bg-slate-50/50 data-[state=selected]:bg-muted"
+    },
+    "status_badges": {
+      "success": "bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-xs font-medium",
+      "pending": "bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-xs font-medium",
+      "error": "bg-red-50 text-red-700 border border-red-200 px-2.5 py-0.5 rounded-full text-xs font-medium"
+    }
+  },
+  "assets": {
+    "images": {
+      "login_background": {
+        "url": "https://images.unsplash.com/photo-1566476927456-446189d7b1ca?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxODd8MHwxfHNlYXJjaHwyfHxtaW5pbWFsaXN0JTIwYnJpZ2h0JTIwb2ZmaWNlJTIwd29ya3NwYWNlfGVufDB8fHx8MTc2ODQyNDkwNnww&ixlib=rb-4.1.0&q=85",
+        "alt": "Minimalist Workspace",
+        "usage": "Login/Register Page Background (Cover)"
+      },
+      "team_meeting": {
+        "url": "https://images.unsplash.com/photo-1709715357520-5e1047a2b691?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzZ8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMHRlYW0lMjBtZWV0aW5nfGVufDB8fHx8MTc2ODQyNDkxMHww&ixlib=rb-4.1.0&q=85",
+        "alt": "Business Team",
+        "usage": "About Page or Enterprise Section"
+      },
+      "logo_placeholder": {
+        "url": "https://via.placeholder.com/150x50?text=QuoteMaster+Pro",
+        "alt": "QuoteMaster Pro Logo"
+      }
+    },
+    "icons": {
+      "library": "lucide-react",
+      "preferred_icons": [
+        "LayoutDashboard",
+        "FileText",
+        "Users",
+        "Settings",
+        "CreditCard",
+        "LogOut",
+        "Plus",
+        "Download",
+        "Share2",
+        "Trash2",
+        "Edit2"
+      ]
+    }
+  },
+  "universal_guidelines": [
+    "DO NOT use gradients for text or backgrounds. Keep it flat and clean.",
+    "Ensure all interactive elements have a `data-testid` attribute.",
+    "Use `sonner` for all toast notifications.",
+    "For the PDF Preview, use an `iframe` or a dedicated PDF viewer component.",
+    "All currency values must be formatted with Turkish Lira symbol (₺) and proper locale (tr-TR).",
+    "Date formats must be DD.MM.YYYY (Turkish standard).",
+    "Input fields for currency should align text to the right.",
+    "Use 'Skeleton' loaders for data fetching states, never simple spinners.",
+    "The 'Create Quote' flow is the core feature. It must be frictionless. Use 'Sheet' (Side Drawer) for quick product addition during quote creation."
+  ],
+  "instructions_to_main_agent": "You are building a high-end SaaS for Turkish SMEs. The design must feel 'expensive' but simple. Follow the color palette strictly. Use the provided image URLs. Implement the 'Bento Grid' layout for the dashboard. Ensure the Quote Builder is a split-screen experience (Input Left, Preview Right). Use 'JetBrains Mono' for all financial data (IBAN, Prices, Totals)."
+}
