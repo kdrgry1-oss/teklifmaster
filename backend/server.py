@@ -674,6 +674,78 @@ async def update_quote_status(quote_id: str, status: str, current_user: dict = D
     
     return {"message": "Durum güncellendi"}
 
+@api_router.put("/quotes/{quote_id}", response_model=QuoteResponse)
+async def update_quote(quote_id: str, quote_data: QuoteUpdate, current_user: dict = Depends(get_auth_user)):
+    existing = await db.quotes.find_one({"id": quote_id, "user_id": current_user["id"]})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Teklif bulunamadı")
+    
+    update_dict = {}
+    
+    # Update basic fields
+    for field in ["customer_id", "customer_name", "customer_email", "customer_phone", "customer_address", "customer_tax_number", "notes", "include_vat"]:
+        value = getattr(quote_data, field, None)
+        if value is not None:
+            update_dict[field] = value
+    
+    # Update validity date if days provided
+    if quote_data.validity_days is not None:
+        created_at = datetime.fromisoformat(existing["created_at"].replace("Z", "+00:00"))
+        validity_date = created_at + timedelta(days=quote_data.validity_days)
+        update_dict["validity_date"] = validity_date.isoformat()
+    
+    # Update bank accounts
+    if quote_data.bank_account_ids is not None:
+        bank_accounts = []
+        if quote_data.bank_account_ids:
+            accounts = await db.bank_accounts.find(
+                {"id": {"$in": quote_data.bank_account_ids}, "user_id": current_user["id"]},
+                {"_id": 0}
+            ).to_list(10)
+            bank_accounts = accounts
+        update_dict["bank_accounts"] = bank_accounts
+    
+    # Update items if provided
+    if quote_data.items is not None:
+        include_vat = quote_data.include_vat if quote_data.include_vat is not None else existing.get("include_vat", True)
+        items = []
+        subtotal = 0
+        total_vat = 0
+        
+        for item in quote_data.items:
+            item_subtotal = item.quantity * item.unit_price
+            discount_amount = item_subtotal * (item.discount_percent / 100)
+            item_subtotal_after_discount = item_subtotal - discount_amount
+            vat_amount = item_subtotal_after_discount * (item.vat_rate / 100) if include_vat else 0
+            item_total = item_subtotal_after_discount + vat_amount
+            
+            items.append({
+                "product_id": item.product_id,
+                "product_name": item.product_name,
+                "unit": item.unit,
+                "quantity": item.quantity,
+                "unit_price": item.unit_price,
+                "vat_rate": item.vat_rate,
+                "discount_percent": item.discount_percent,
+                "subtotal": round(item_subtotal_after_discount, 2),
+                "vat_amount": round(vat_amount, 2),
+                "total": round(item_total, 2)
+            })
+            
+            subtotal += item_subtotal_after_discount
+            total_vat += vat_amount
+        
+        update_dict["items"] = items
+        update_dict["subtotal"] = round(subtotal, 2)
+        update_dict["total_vat"] = round(total_vat, 2)
+        update_dict["total"] = round(subtotal + total_vat, 2)
+    
+    update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    await db.quotes.update_one({"id": quote_id}, {"$set": update_dict})
+    updated = await db.quotes.find_one({"id": quote_id}, {"_id": 0})
+    return updated
+
 @api_router.delete("/quotes/{quote_id}")
 async def delete_quote(quote_id: str, current_user: dict = Depends(get_auth_user)):
     result = await db.quotes.delete_one({"id": quote_id, "user_id": current_user["id"]})
