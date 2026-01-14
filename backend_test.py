@@ -698,6 +698,14 @@ class QuoteMasterAPITester:
                 print(f"  ✅ Deleted bank account {bank_id}")
             else:
                 print(f"  ❌ Failed to delete bank account {bank_id}")
+        
+        # Delete customers
+        for customer_id in getattr(self, 'created_customers', []):
+            success, _ = self.make_request('DELETE', f'customers/{customer_id}', expect_status=200)
+            if success:
+                print(f"  ✅ Deleted customer {customer_id}")
+            else:
+                print(f"  ❌ Failed to delete customer {customer_id}")
 
     def run_all_tests(self):
         """Run all backend tests"""
