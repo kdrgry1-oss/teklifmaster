@@ -53,6 +53,13 @@ export const productsAPI = {
   create: (data) => api.post('/products', data),
   update: (id, data) => api.put(`/products/${id}`, data),
   delete: (id) => api.delete(`/products/${id}`),
+  uploadImage: (id, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/products/${id}/upload-image`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   exportExcel: () => api.get('/products/export/excel', { responseType: 'blob' }),
   importExcel: (file) => {
     const formData = new FormData();
@@ -61,6 +68,15 @@ export const productsAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+};
+
+// Customers
+export const customersAPI = {
+  getAll: (search = '') => api.get(`/customers${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  getById: (id) => api.get(`/customers/${id}`),
+  create: (data) => api.post('/customers', data),
+  update: (id, data) => api.put(`/customers/${id}`, data),
+  delete: (id) => api.delete(`/customers/${id}`),
 };
 
 // Bank Accounts
