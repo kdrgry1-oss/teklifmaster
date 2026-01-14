@@ -6,12 +6,14 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
+import Customers from './pages/Customers';
 import Quotes from './pages/Quotes';
 import NewQuote from './pages/NewQuote';
 import QuoteDetail from './pages/QuoteDetail';
 import BankAccounts from './pages/BankAccounts';
 import Settings from './pages/Settings';
 import Subscription from './pages/Subscription';
+import Reports from './pages/Reports';
 import './App.css';
 
 // Protected Route wrapper
