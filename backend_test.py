@@ -727,10 +727,14 @@ class QuoteMasterAPITester:
         self.test_update_company_settings()
         
         # Core functionality tests
+        self.test_customer_crud_with_search()
         self.test_product_crud()
+        self.test_product_image_upload()
         self.test_excel_operations()
         self.test_bank_account_crud()
         self.test_quote_operations()
+        self.test_quote_update_operations()
+        self.test_reports_functionality()
         self.test_dashboard_stats()
         self.test_subscription_operations()
         
