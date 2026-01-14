@@ -811,6 +811,8 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
     # Customer Section
     elements.append(Paragraph("MUSTERI BILGILERI", styles['SectionTitle']))
     customer_info = f"<b>{quote['customer_name']}</b><br/>"
+    if quote.get('customer_tax_number'):
+        customer_info += f"VKN: {quote['customer_tax_number']}<br/>"
     if quote.get('customer_address'):
         customer_info += f"{quote['customer_address']}<br/>"
     if quote.get('customer_phone'):
