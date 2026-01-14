@@ -3,7 +3,7 @@ import { productsAPI, formatCurrency } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Skeleton } from '../components/ui/skeleton';
@@ -17,7 +17,7 @@ import {
   Upload,
   Package,
   Loader2,
-  AlertCircle,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 const UNITS = [
@@ -42,7 +42,9 @@ const Products = () => {
   const [editingProduct, setEditingProduct] = useState(null);
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef(null);
+  const imageInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -176,6 +178,42 @@ const Products = () => {
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Görsel 2MB\'dan küçük olmalıdır');
+      return;
+    }
+
+    if (editingProduct) {
+      // Upload to server for existing product
+      setUploadingImage(true);
+      try {
+        const response = await productsAPI.uploadImage(editingProduct.id, file);
+        setFormData({ ...formData, image_url: response.data.image_url });
+        toast.success('Görsel yüklendi');
+        fetchProducts();
+      } catch (error) {
+        toast.error('Görsel yüklenemedi');
+      } finally {
+        setUploadingImage(false);
+      }
+    } else {
+      // Convert to base64 for new product
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFormData({ ...formData, image_url: event.target.result });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    if (imageInputRef.current) {
+      imageInputRef.current.value = '';
+    }
+  };
+
   const filteredProducts = products.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -276,42 +314,59 @@ const Products = () => {
           {filteredProducts.map((product) => (
             <Card key={product.id} className="card-hover" data-testid={`product-card-${product.id}`}>
               <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-slate-900 truncate">{product.name}</h3>
-                    {product.sku && (
-                      <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
+                <div className="flex gap-3">
+                  {/* Product Image */}
+                  <div className="w-16 h-16 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Package className="w-8 h-8 text-slate-300" />
                     )}
                   </div>
-                  <div className="flex gap-1 ml-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenDialog(product)}
-                      data-testid={`edit-product-${product.id}`}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(product)}
-                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                      data-testid={`delete-product-${product.id}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                {product.description && (
-                  <p className="text-sm text-slate-500 mb-3 line-clamp-2">{product.description}</p>
-                )}
-                <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                  <div className="text-sm text-slate-500">
-                    {product.unit} • %{product.vat_rate} KDV
-                  </div>
-                  <div className="font-semibold font-mono text-slate-900">
-                    {formatCurrency(product.unit_price)}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-slate-900 truncate">{product.name}</h3>
+                        {product.sku && (
+                          <p className="text-xs text-slate-400 font-mono">{product.sku}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenDialog(product)}
+                          data-testid={`edit-product-${product.id}`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDelete(product)}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          data-testid={`delete-product-${product.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    {product.description && (
+                      <p className="text-sm text-slate-500 mt-1 line-clamp-1">{product.description}</p>
+                    )}
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                      <div className="text-xs text-slate-500">
+                        {product.unit} • %{product.vat_rate} KDV
+                      </div>
+                      <div className="font-semibold font-mono text-slate-900">
+                        {formatCurrency(product.unit_price)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -327,6 +382,45 @@ const Products = () => {
             <DialogTitle>{editingProduct ? 'Ürün Düzenle' : 'Yeni Ürün'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Image Upload */}
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-lg bg-slate-100 flex items-center justify-center overflow-hidden border-2 border-dashed border-slate-200">
+                {formData.image_url ? (
+                  <img
+                    src={formData.image_url}
+                    alt="Ürün"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <ImageIcon className="w-8 h-8 text-slate-300" />
+                )}
+              </div>
+              <div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => imageInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  data-testid="upload-image-btn"
+                >
+                  {uploadingImage ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  Görsel Yükle
+                </Button>
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                <p className="text-xs text-slate-400 mt-1">PNG, JPG. Max 2MB</p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label htmlFor="name">Ürün Adı *</Label>
