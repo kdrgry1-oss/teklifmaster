@@ -363,6 +363,24 @@ async def delete_product(product_id: str, current_user: dict = Depends(get_auth_
         raise HTTPException(status_code=404, detail="Ürün bulunamadı")
     return {"message": "Ürün silindi"}
 
+@api_router.post("/products/{product_id}/upload-image")
+async def upload_product_image(product_id: str, file: UploadFile = File(...), current_user: dict = Depends(get_auth_user)):
+    existing = await db.products.find_one({"id": product_id, "user_id": current_user["id"]})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Ürün bulunamadı")
+    
+    content = await file.read()
+    encoded = base64.b64encode(content).decode()
+    content_type = file.content_type or "image/png"
+    data_url = f"data:{content_type};base64,{encoded}"
+    
+    await db.products.update_one(
+        {"id": product_id},
+        {"$set": {"image_url": data_url, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    return {"image_url": data_url}
+
 # ============== EXCEL IMPORT/EXPORT ==============
 
 @api_router.get("/products/export/excel")
