@@ -15,7 +15,13 @@ import bcrypt
 from io import BytesIO
 import base64
 import json
-from weasyprint import HTML, CSS
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import mm, cm
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image as RLImage
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import openpyxl
 from openpyxl import Workbook
 import tempfile
