@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { productsAPI, bankAccountsAPI, quotesAPI, formatCurrency } from '../lib/api';
+import { useNavigate, useParams } from 'react-router-dom';
+import { productsAPI, bankAccountsAPI, quotesAPI, customersAPI, formatCurrency } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -26,22 +26,33 @@ import {
   MapPin,
   Building,
   Percent,
+  Users,
+  Check,
 } from 'lucide-react';
 
 const NewQuote = () => {
   const navigate = useNavigate();
+  const { id: editId } = useParams();
+  const isEditing = Boolean(editId);
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [products, setProducts] = useState([]);
   const [bankAccounts, setBankAccounts] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [productSearch, setProductSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [customerSheetOpen, setCustomerSheetOpen] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState([]);
 
   const [formData, setFormData] = useState({
+    customer_id: '',
     customer_name: '',
     customer_email: '',
     customer_phone: '',
     customer_address: '',
+    customer_tax_number: '',
     validity_days: 30,
     notes: '',
     include_vat: true,
@@ -52,16 +63,45 @@ const NewQuote = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [editId]);
 
   const fetchData = async () => {
     try {
-      const [productsRes, banksRes] = await Promise.all([
+      const [productsRes, banksRes, customersRes] = await Promise.all([
         productsAPI.getAll(),
         bankAccountsAPI.getAll(),
+        customersAPI.getAll(),
       ]);
       setProducts(productsRes.data);
       setBankAccounts(banksRes.data);
+      setCustomers(customersRes.data);
+
+      // If editing, load quote data
+      if (editId) {
+        const quoteRes = await quotesAPI.getById(editId);
+        const quote = quoteRes.data;
+        setFormData({
+          customer_id: quote.customer_id || '',
+          customer_name: quote.customer_name,
+          customer_email: quote.customer_email || '',
+          customer_phone: quote.customer_phone || '',
+          customer_address: quote.customer_address || '',
+          customer_tax_number: quote.customer_tax_number || '',
+          validity_days: 30,
+          notes: quote.notes || '',
+          include_vat: quote.include_vat,
+          selectedBanks: quote.bank_accounts?.map(b => b.id) || [],
+        });
+        setItems(quote.items.map(item => ({
+          product_id: item.product_id,
+          product_name: item.product_name,
+          unit: item.unit,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          vat_rate: item.vat_rate,
+          discount_percent: item.discount_percent,
+        })));
+      }
     } catch (error) {
       toast.error('Veriler yüklenemedi');
     } finally {
@@ -69,26 +109,52 @@ const NewQuote = () => {
     }
   };
 
-  const addProduct = (product) => {
-    const existingIndex = items.findIndex((i) => i.product_id === product.id);
-    if (existingIndex >= 0) {
-      const newItems = [...items];
-      newItems[existingIndex].quantity += 1;
-      setItems(newItems);
+  const selectCustomer = (customer) => {
+    setFormData({
+      ...formData,
+      customer_id: customer.id,
+      customer_name: customer.name,
+      customer_email: customer.email || '',
+      customer_phone: customer.phone || '',
+      customer_address: customer.address || '',
+      customer_tax_number: customer.tax_number || '',
+    });
+    setCustomerSheetOpen(false);
+    setCustomerSearch('');
+  };
+
+  const toggleProductSelection = (product) => {
+    const exists = selectedProducts.find(p => p.id === product.id);
+    if (exists) {
+      setSelectedProducts(selectedProducts.filter(p => p.id !== product.id));
     } else {
-      setItems([
-        ...items,
-        {
-          product_id: product.id,
-          product_name: product.name,
-          unit: product.unit,
-          quantity: 1,
-          unit_price: product.unit_price,
-          vat_rate: product.vat_rate,
-          discount_percent: 0,
-        },
-      ]);
+      setSelectedProducts([...selectedProducts, product]);
     }
+  };
+
+  const addSelectedProducts = () => {
+    selectedProducts.forEach(product => {
+      const existingIndex = items.findIndex((i) => i.product_id === product.id);
+      if (existingIndex >= 0) {
+        const newItems = [...items];
+        newItems[existingIndex].quantity += 1;
+        setItems(newItems);
+      } else {
+        setItems(prev => [
+          ...prev,
+          {
+            product_id: product.id,
+            product_name: product.name,
+            unit: product.unit,
+            quantity: 1,
+            unit_price: product.unit_price,
+            vat_rate: product.vat_rate,
+            discount_percent: 0,
+          },
+        ]);
+      }
+    });
+    setSelectedProducts([]);
     setSheetOpen(false);
     setProductSearch('');
   };
@@ -148,10 +214,12 @@ const NewQuote = () => {
     setSaving(true);
     try {
       const quoteData = {
+        customer_id: formData.customer_id || null,
         customer_name: formData.customer_name,
         customer_email: formData.customer_email || null,
         customer_phone: formData.customer_phone || null,
         customer_address: formData.customer_address || null,
+        customer_tax_number: formData.customer_tax_number || null,
         validity_days: formData.validity_days,
         notes: formData.notes || null,
         include_vat: formData.include_vat,
@@ -167,18 +235,31 @@ const NewQuote = () => {
         })),
       };
 
-      const response = await quotesAPI.create(quoteData);
-      toast.success('Teklif oluşturuldu');
-      navigate(`/quotes/${response.data.id}`);
+      if (isEditing) {
+        await quotesAPI.update(editId, quoteData);
+        toast.success('Teklif güncellendi');
+        navigate(`/quotes/${editId}`);
+      } else {
+        const response = await quotesAPI.create(quoteData);
+        toast.success('Teklif oluşturuldu');
+        navigate(`/quotes/${response.data.id}`);
+      }
     } catch (error) {
-      toast.error('Teklif oluşturulamadı');
+      toast.error(isEditing ? 'Teklif güncellenemedi' : 'Teklif oluşturulamadı');
     } finally {
       setSaving(false);
     }
   };
 
   const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(productSearch.toLowerCase())
+    p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    p.sku?.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
+  const filteredCustomers = customers.filter((c) =>
+    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    c.email?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    c.tax_number?.includes(customerSearch)
   );
 
   if (loading) {
@@ -205,7 +286,9 @@ const NewQuote = () => {
           Geri
         </Button>
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Yeni Teklif Oluştur</h1>
+          <h1 className="text-2xl font-bold text-slate-900">
+            {isEditing ? 'Teklif Düzenle' : 'Yeni Teklif Oluştur'}
+          </h1>
           <p className="text-slate-500">Müşteri bilgilerini ve ürünleri ekleyin</p>
         </div>
       </div>
@@ -215,11 +298,60 @@ const NewQuote = () => {
         <div className="space-y-6">
           {/* Customer Info */}
           <Card data-testid="customer-info-card">
-            <CardHeader className="pb-4">
+            <CardHeader className="pb-4 flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <User className="w-5 h-5" />
                 Müşteri Bilgileri
               </CardTitle>
+              <Sheet open={customerSheetOpen} onOpenChange={setCustomerSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" data-testid="select-customer-btn">
+                    <Users className="w-4 h-4 mr-1" />
+                    Müşteri Seç
+                  </Button>
+                </SheetTrigger>
+                <SheetContent className="w-[400px] sm:w-[540px]">
+                  <SheetHeader>
+                    <SheetTitle>Müşteri Seç</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input
+                        placeholder="Müşteri, email veya VKN ara..."
+                        value={customerSearch}
+                        onChange={(e) => setCustomerSearch(e.target.value)}
+                        className="pl-10"
+                        data-testid="customer-search-sheet"
+                      />
+                    </div>
+                    <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                      {filteredCustomers.length === 0 ? (
+                        <p className="text-center text-slate-500 py-8">Müşteri bulunamadı</p>
+                      ) : (
+                        filteredCustomers.map((customer) => (
+                          <div
+                            key={customer.id}
+                            className="p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                            onClick={() => selectCustomer(customer)}
+                            data-testid={`select-customer-${customer.id}`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium">{customer.name}</p>
+                                <p className="text-sm text-slate-500">
+                                  {customer.tax_number && `VKN: ${customer.tax_number}`}
+                                  {customer.email && ` • ${customer.email}`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -234,19 +366,15 @@ const NewQuote = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="customer_email">E-posta</Label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      id="customer_email"
-                      type="email"
-                      value={formData.customer_email}
-                      onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
-                      className="pl-10"
-                      placeholder="ornek@email.com"
-                      data-testid="customer-email-input"
-                    />
-                  </div>
+                  <Label htmlFor="customer_tax_number">Vergi Numarası</Label>
+                  <Input
+                    id="customer_tax_number"
+                    value={formData.customer_tax_number}
+                    onChange={(e) => setFormData({ ...formData, customer_tax_number: e.target.value })}
+                    placeholder="0000000000"
+                    className="font-mono"
+                    data-testid="customer-tax-input"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="customer_phone">Telefon</Label>
@@ -261,6 +389,21 @@ const NewQuote = () => {
                       data-testid="customer-phone-input"
                     />
                   </div>
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="customer_email">E-posta</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    id="customer_email"
+                    type="email"
+                    value={formData.customer_email}
+                    onChange={(e) => setFormData({ ...formData, customer_email: e.target.value })}
+                    className="pl-10"
+                    placeholder="ornek@email.com"
+                    data-testid="customer-email-input"
+                  />
                 </div>
               </div>
               <div>
@@ -296,43 +439,66 @@ const NewQuote = () => {
                 </SheetTrigger>
                 <SheetContent className="w-[400px] sm:w-[540px]">
                   <SheetHeader>
-                    <SheetTitle>Ürün Seç</SheetTitle>
+                    <SheetTitle>Ürün Seç (Çoklu Seçim)</SheetTitle>
                   </SheetHeader>
                   <div className="mt-4 space-y-4">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <Input
-                        placeholder="Ürün ara..."
+                        placeholder="Ürün veya SKU ara..."
                         value={productSearch}
                         onChange={(e) => setProductSearch(e.target.value)}
                         className="pl-10"
                         data-testid="product-search-sheet"
                       />
                     </div>
-                    <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+                    
+                    {selectedProducts.length > 0 && (
+                      <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
+                        <span className="text-sm font-medium text-orange-700">
+                          {selectedProducts.length} ürün seçildi
+                        </span>
+                        <Button size="sm" onClick={addSelectedProducts} className="btn-accent" data-testid="add-selected-products-btn">
+                          <Check className="w-4 h-4 mr-1" />
+                          Ekle
+                        </Button>
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2 max-h-[50vh] overflow-y-auto">
                       {filteredProducts.length === 0 ? (
                         <p className="text-center text-slate-500 py-8">Ürün bulunamadı</p>
                       ) : (
-                        filteredProducts.map((product) => (
-                          <div
-                            key={product.id}
-                            className="p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                            onClick={() => addProduct(product)}
-                            data-testid={`select-product-${product.id}`}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium">{product.name}</p>
-                                <p className="text-sm text-slate-500">
-                                  {product.unit} • %{product.vat_rate} KDV
-                                </p>
+                        filteredProducts.map((product) => {
+                          const isSelected = selectedProducts.find(p => p.id === product.id);
+                          return (
+                            <div
+                              key={product.id}
+                              className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                                isSelected ? 'bg-orange-50 border-orange-300' : 'hover:bg-slate-50'
+                              }`}
+                              onClick={() => toggleProductSelection(product)}
+                              data-testid={`select-product-${product.id}`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <Checkbox checked={!!isSelected} />
+                                <div className="flex-1">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-medium">{product.name}</p>
+                                      <p className="text-sm text-slate-500">
+                                        {product.sku && `${product.sku} • `}{product.unit} • %{product.vat_rate} KDV
+                                      </p>
+                                    </div>
+                                    <p className="font-semibold font-mono">
+                                      {formatCurrency(product.unit_price)}
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
-                              <p className="font-semibold font-mono">
-                                {formatCurrency(product.unit_price)}
-                              </p>
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -538,12 +704,12 @@ const NewQuote = () => {
                 {saving ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Oluşturuluyor...
+                    {isEditing ? 'Güncelleniyor...' : 'Oluşturuluyor...'}
                   </>
                 ) : (
                   <>
                     <FileText className="w-5 h-5 mr-2" />
-                    Teklif Oluştur
+                    {isEditing ? 'Teklifi Güncelle' : 'Teklif Oluştur'}
                   </>
                 )}
               </Button>
