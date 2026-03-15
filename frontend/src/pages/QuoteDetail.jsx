@@ -5,15 +5,10 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
   Download,
-  Share2,
   Mail,
   Clock,
   Send,
@@ -40,12 +35,7 @@ const QuoteDetail = () => {
   const navigate = useNavigate();
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [emailForm, setEmailForm] = useState({
-    recipient_email: '',
-    message: '',
-  });
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     fetchQuote();
@@ -79,61 +69,74 @@ const QuoteDetail = () => {
     }
   };
 
+  // Download PDF first, then open WhatsApp
   const handleShareWhatsApp = async () => {
-    const message = `Sayın ${quote.customer_name},\n\n${quote.quote_number} numaralı teklifimizi iletiyoruz.\n\nToplam: ${formatCurrency(quote.total)}\n\nİyi günler dileriz.`;
-    const whatsappUrl = `https://wa.me/${quote.customer_phone ? quote.customer_phone.replace(/\D/g, '') : ''}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-
-    if (quote.status === 'draft') {
-      try {
-        await quotesAPI.updateStatus(quote.id, 'sent');
-        fetchQuote();
-      } catch (error) {
-        console.error('Status update failed');
-      }
-    }
-  };
-
-  const openEmailDialog = () => {
-    setEmailForm({
-      recipient_email: quote.customer_email || '',
-      message: '',
-    });
-    setEmailDialogOpen(true);
-  };
-
-  const handleSendEmail = async () => {
-    if (!emailForm.recipient_email) {
-      toast.error('E-posta adresi zorunludur');
-      return;
-    }
-
-    setSendingEmail(true);
+    setSharing(true);
     try {
-      await quotesAPI.shareEmail(quote.id, emailForm.recipient_email, emailForm.message);
-      toast.success('Teklif e-posta ile gönderildi');
-      setEmailDialogOpen(false);
-      fetchQuote();
+      // First download the PDF
+      const response = await quotesAPI.getPdf(quote.id);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Teklif_${quote.quote_number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      toast.success('PDF indirildi! Şimdi WhatsApp açılıyor...');
+      
+      // Then open WhatsApp
+      const message = `Sayın ${quote.customer_name},\n\n${quote.quote_number} numaralı teklifimizi ekte iletiyoruz.\n\nToplam: ${formatCurrency(quote.total)}\n\nİyi günler dileriz.`;
+      const phone = quote.customer_phone ? quote.customer_phone.replace(/\D/g, '') : '';
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      
+      setTimeout(() => {
+        window.open(whatsappUrl, '_blank');
+      }, 500);
+
+      if (quote.status === 'draft') {
+        await quotesAPI.updateStatus(quote.id, 'sent');
+        fetchQuote();
+      }
     } catch (error) {
-      const errorMsg = error.response?.data?.detail || 'E-posta gönderilemedi';
-      toast.error(errorMsg);
+      toast.error('Paylaşım hazırlanamadı');
     } finally {
-      setSendingEmail(false);
+      setSharing(false);
     }
   };
 
-  const handleShareEmailFallback = async () => {
-    const subject = `${quote.quote_number} - Fiyat Teklifi`;
-    const body = `Sayın ${quote.customer_name},\n\n${quote.quote_number} numaralı teklifimizi ekte iletiyoruz.\n\nToplam: ${formatCurrency(quote.total)}\n\nSorularınız için bize ulaşabilirsiniz.\n\nİyi günler dileriz.`;
-    window.location.href = `mailto:${quote.customer_email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  // Download PDF first, then open Email
+  const handleShareEmail = async () => {
+    setSharing(true);
+    try {
+      // First download the PDF
+      const response = await quotesAPI.getPdf(quote.id);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Teklif_${quote.quote_number}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      toast.success('PDF indirildi! Şimdi e-posta açılıyor...');
+      
+      // Then open mailto
+      const subject = `${quote.quote_number} - Fiyat Teklifi`;
+      const body = `Sayın ${quote.customer_name},\n\n${quote.quote_number} numaralı teklifimizi ekte iletiyoruz.\n\nToplam: ${formatCurrency(quote.total)}\n\nLütfen indirilen PDF dosyasını e-postaya ekleyin.\n\nSorularınız için bize ulaşabilirsiniz.\n\nİyi günler dileriz.`;
+      
+      setTimeout(() => {
+        window.location.href = `mailto:${quote.customer_email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      }, 500);
 
-    if (quote.status === 'draft') {
-      try {
+      if (quote.status === 'draft') {
         await quotesAPI.updateStatus(quote.id, 'sent');
         fetchQuote();
-      } catch (error) {
-        console.error('Status update failed');
       }
+    } catch (error) {
+      toast.error('Paylaşım hazırlanamadı');
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -181,12 +184,30 @@ const QuoteDetail = () => {
               Düzenle
             </Button>
           </Link>
-          <Button variant="outline" onClick={handleShareWhatsApp} data-testid="share-whatsapp-btn">
-            <MessageSquare className="w-4 h-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={handleShareWhatsApp} 
+            disabled={sharing}
+            data-testid="share-whatsapp-btn"
+          >
+            {sharing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <MessageSquare className="w-4 h-4 mr-2" />
+            )}
             WhatsApp
           </Button>
-          <Button variant="outline" onClick={openEmailDialog} data-testid="share-email-btn">
-            <Mail className="w-4 h-4 mr-2" />
+          <Button 
+            variant="outline" 
+            onClick={handleShareEmail} 
+            disabled={sharing}
+            data-testid="share-email-btn"
+          >
+            {sharing ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Mail className="w-4 h-4 mr-2" />
+            )}
             E-posta
           </Button>
           <Button className="btn-accent" onClick={handleDownloadPdf} data-testid="download-pdf-btn">
@@ -376,68 +397,6 @@ const QuoteDetail = () => {
           </Card>
         </div>
       </div>
-
-      {/* Email Dialog */}
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent data-testid="email-dialog">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="w-5 h-5" />
-              Teklifi E-posta ile Gönder
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="recipient_email">Alıcı E-posta Adresi *</Label>
-              <Input
-                id="recipient_email"
-                type="email"
-                value={emailForm.recipient_email}
-                onChange={(e) => setEmailForm({ ...emailForm, recipient_email: e.target.value })}
-                placeholder="ornek@email.com"
-                data-testid="email-recipient-input"
-              />
-            </div>
-            <div>
-              <Label htmlFor="email_message">Ek Mesaj (Opsiyonel)</Label>
-              <Textarea
-                id="email_message"
-                value={emailForm.message}
-                onChange={(e) => setEmailForm({ ...emailForm, message: e.target.value })}
-                placeholder="E-postaya eklemek istediğiniz özel mesaj..."
-                className="min-h-[100px]"
-                data-testid="email-message-input"
-              />
-            </div>
-            <div className="p-3 bg-slate-50 rounded-lg text-sm text-slate-600">
-              <p><strong>Not:</strong> Teklif PDF'i e-postaya otomatik olarak eklenecektir.</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
-              İptal
-            </Button>
-            <Button 
-              onClick={handleSendEmail} 
-              disabled={sendingEmail || !emailForm.recipient_email}
-              className="btn-accent"
-              data-testid="send-email-btn"
-            >
-              {sendingEmail ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Gönderiliyor...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Gönder
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

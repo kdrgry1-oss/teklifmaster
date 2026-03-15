@@ -1,15 +1,21 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, status, Query, BackgroundTasks
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, status, Query, BackgroundTasks, Request
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import re
+import hashlib
+import hmac
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
+from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, timezone, timedelta
+from collections import defaultdict
 import jwt
 import bcrypt
 from io import BytesIO
@@ -17,7 +23,8 @@ import base64
 import json
 import asyncio
 import secrets
-import resend
+import html
+from cryptography.fernet import Fernet
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -34,24 +41,220 @@ import aiofiles
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
 # JWT Settings
-JWT_SECRET = os.environ.get('JWT_SECRET', 'quotemaster-secret-key-2024')
+JWT_SECRET = os.environ.get('JWT_SECRET', secrets.token_urlsafe(32))
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24
 
-# Resend Email Settings
-RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
-SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
-if RESEND_API_KEY:
-    resend.api_key = RESEND_API_KEY
+# Encryption key for sensitive data (generate if not exists)
+ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', Fernet.generate_key().decode())
+fernet = Fernet(ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else ENCRYPTION_KEY)
+
+# ============== SECURITY UTILITIES ==============
+
+# Rate limiting storage (in-memory, use Redis in production)
+rate_limit_storage: Dict[str, List[datetime]] = defaultdict(list)
+blocked_ips: Dict[str, datetime] = {}
+
+# Security constants
+MAX_REQUESTS_PER_MINUTE = 60
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_BLOCK_DURATION = timedelta(minutes=15)
+SUSPICIOUS_PATTERNS = [
+    r'<script[^>]*>',
+    r'javascript:',
+    r'on\w+\s*=',
+    r'data:text/html',
+    r'vbscript:',
+    r'expression\s*\(',
+]
+
+def sanitize_input(value: str) -> str:
+    """Sanitize input to prevent XSS and injection attacks"""
+    if not value:
+        return value
+    # HTML escape
+    sanitized = html.escape(value)
+    # Check for suspicious patterns
+    for pattern in SUSPICIOUS_PATTERNS:
+        if re.search(pattern, value, re.IGNORECASE):
+            logger.warning(f"Suspicious pattern detected: {pattern}")
+            sanitized = re.sub(pattern, '', sanitized, flags=re.IGNORECASE)
+    return sanitized
+
+def sanitize_dict(data: dict) -> dict:
+    """Recursively sanitize all string values in a dictionary"""
+    sanitized = {}
+    for key, value in data.items():
+        if isinstance(value, str):
+            sanitized[key] = sanitize_input(value)
+        elif isinstance(value, dict):
+            sanitized[key] = sanitize_dict(value)
+        elif isinstance(value, list):
+            sanitized[key] = [
+                sanitize_input(v) if isinstance(v, str) else 
+                sanitize_dict(v) if isinstance(v, dict) else v 
+                for v in value
+            ]
+        else:
+            sanitized[key] = value
+    return sanitized
+
+def encrypt_sensitive_data(data: str) -> str:
+    """Encrypt sensitive data"""
+    return fernet.encrypt(data.encode()).decode()
+
+def decrypt_sensitive_data(encrypted_data: str) -> str:
+    """Decrypt sensitive data"""
+    try:
+        return fernet.decrypt(encrypted_data.encode()).decode()
+    except Exception:
+        return encrypted_data  # Return as-is if decryption fails
+
+def hash_sensitive_field(value: str) -> str:
+    """Create a hash for sensitive fields (for searching encrypted data)"""
+    return hashlib.sha256(value.encode()).hexdigest()[:16]
+
+def check_rate_limit(ip: str, limit: int = MAX_REQUESTS_PER_MINUTE) -> bool:
+    """Check if IP has exceeded rate limit"""
+    now = datetime.now(timezone.utc)
+    minute_ago = now - timedelta(minutes=1)
+    
+    # Clean old entries
+    rate_limit_storage[ip] = [t for t in rate_limit_storage[ip] if t > minute_ago]
+    
+    if len(rate_limit_storage[ip]) >= limit:
+        return False
+    
+    rate_limit_storage[ip].append(now)
+    return True
+
+def is_ip_blocked(ip: str) -> bool:
+    """Check if IP is blocked"""
+    if ip in blocked_ips:
+        if blocked_ips[ip] > datetime.now(timezone.utc):
+            return True
+        else:
+            del blocked_ips[ip]
+    return False
+
+def block_ip(ip: str, duration: timedelta = LOGIN_BLOCK_DURATION):
+    """Block an IP address"""
+    blocked_ips[ip] = datetime.now(timezone.utc) + duration
+    logger.warning(f"IP blocked: {ip}")
+
+# Login attempt tracking
+login_attempts: Dict[str, List[datetime]] = defaultdict(list)
+
+def check_login_attempts(email: str, ip: str) -> bool:
+    """Check if login attempts exceeded"""
+    key = f"{email}:{ip}"
+    now = datetime.now(timezone.utc)
+    window = now - LOGIN_BLOCK_DURATION
+    
+    # Clean old attempts
+    login_attempts[key] = [t for t in login_attempts[key] if t > window]
+    
+    if len(login_attempts[key]) >= MAX_LOGIN_ATTEMPTS:
+        return False
+    return True
+
+def record_login_attempt(email: str, ip: str):
+    """Record a failed login attempt"""
+    key = f"{email}:{ip}"
+    login_attempts[key].append(datetime.now(timezone.utc))
+
+# ============== SECURITY MIDDLEWARE ==============
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Add security headers to all responses"""
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        
+        # Security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        
+        # Remove server header
+        if "server" in response.headers:
+            del response.headers["server"]
+        
+        return response
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    """Rate limiting middleware"""
+    async def dispatch(self, request: Request, call_next):
+        client_ip = request.client.host if request.client else "unknown"
+        
+        # Check if IP is blocked
+        if is_ip_blocked(client_ip):
+            logger.warning(f"Blocked IP attempted access: {client_ip}")
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Erişiminiz geçici olarak engellenmiştir"}
+            )
+        
+        # Check rate limit
+        if not check_rate_limit(client_ip):
+            logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Çok fazla istek. Lütfen bir dakika bekleyin."}
+            )
+        
+        return await call_next(request)
+
+class AuditLogMiddleware(BaseHTTPMiddleware):
+    """Audit logging for sensitive operations"""
+    SENSITIVE_PATHS = ['/api/auth/', '/api/quotes/', '/api/customers/', '/api/products/']
+    
+    async def dispatch(self, request: Request, call_next):
+        # Log sensitive operations
+        path = request.url.path
+        method = request.method
+        client_ip = request.client.host if request.client else "unknown"
+        
+        is_sensitive = any(path.startswith(p) for p in self.SENSITIVE_PATHS)
+        
+        if is_sensitive and method in ['POST', 'PUT', 'DELETE']:
+            logger.info(f"AUDIT: {method} {path} from {client_ip}")
+        
+        response = await call_next(request)
+        
+        # Log failed auth attempts
+        if path.startswith('/api/auth/login') and response.status_code == 401:
+            logger.warning(f"AUDIT: Failed login attempt from {client_ip}")
+        
+        return response
 
 # Create the main app
-app = FastAPI(title="QuoteMaster Pro API")
+app = FastAPI(
+    title="QuoteMaster Pro API",
+    docs_url=None,  # Disable Swagger UI in production
+    redoc_url=None,  # Disable ReDoc in production
+    openapi_url=None  # Disable OpenAPI schema in production
+)
+
+# Add security middleware (order matters - first added = last executed)
+app.add_middleware(AuditLogMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -60,12 +263,31 @@ api_router = APIRouter(prefix="/api")
 UPLOAD_DIR = ROOT_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-# ============== MODELS ==============
+# ============== MODELS WITH VALIDATION ==============
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
     company_name: str
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        if len(v) < 6:
+            raise ValueError('Şifre en az 6 karakter olmalıdır')
+        if len(v) > 128:
+            raise ValueError('Şifre çok uzun')
+        return v
+    
+    @field_validator('company_name')
+    @classmethod
+    def validate_company_name(cls, v):
+        v = sanitize_input(v.strip())
+        if len(v) < 2:
+            raise ValueError('Şirket adı en az 2 karakter olmalıdır')
+        if len(v) > 200:
+            raise ValueError('Şirket adı çok uzun')
+        return v
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -104,6 +326,30 @@ class ProductCreate(BaseModel):
     vat_rate: float = 20.0
     image_url: Optional[str] = None
     sku: Optional[str] = None
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v):
+        v = sanitize_input(v.strip())
+        if len(v) < 1 or len(v) > 200:
+            raise ValueError('Ürün adı 1-200 karakter arası olmalıdır')
+        return v
+    
+    @field_validator('description')
+    @classmethod
+    def validate_description(cls, v):
+        if v:
+            v = sanitize_input(v.strip())
+            if len(v) > 2000:
+                raise ValueError('Açıklama çok uzun')
+        return v
+    
+    @field_validator('unit_price')
+    @classmethod
+    def validate_price(cls, v):
+        if v < 0 or v > 999999999:
+            raise ValueError('Geçersiz fiyat')
+        return v
 
 class ProductResponse(BaseModel):
     id: str
@@ -125,6 +371,36 @@ class BankAccountCreate(BaseModel):
     account_holder: Optional[str] = None
     currency: str = "TRY"
     account_type: str = "checking"  # checking, savings, foreign
+    
+    @field_validator('bank_name')
+    @classmethod
+    def validate_bank_name(cls, v):
+        v = sanitize_input(v.strip())
+        if len(v) < 2 or len(v) > 100:
+            raise ValueError('Banka adı geçersiz')
+        return v
+    
+    @field_validator('iban')
+    @classmethod
+    def validate_iban(cls, v):
+        # Remove spaces and validate
+        v = v.replace(' ', '').upper()
+        if not v.startswith('TR'):
+            v = 'TR' + v
+        if len(v) != 26:
+            raise ValueError('IBAN 26 karakter olmalıdır')
+        if not re.match(r'^TR\d{24}$', v):
+            raise ValueError('Geçersiz IBAN formatı')
+        return v
+    
+    @field_validator('account_holder')
+    @classmethod
+    def validate_account_holder(cls, v):
+        if v:
+            v = sanitize_input(v.strip())
+            if len(v) > 100:
+                raise ValueError('Hesap sahibi adı çok uzun')
+        return v
 
 class BankAccountResponse(BaseModel):
     id: str
@@ -199,6 +475,42 @@ class CustomerCreate(BaseModel):
     address: Optional[str] = None
     tax_number: Optional[str] = None
     contact_person: Optional[str] = None
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v):
+        v = sanitize_input(v.strip())
+        if len(v) < 1 or len(v) > 200:
+            raise ValueError('Müşteri adı 1-200 karakter arası olmalıdır')
+        return v
+    
+    @field_validator('address')
+    @classmethod
+    def validate_address(cls, v):
+        if v:
+            v = sanitize_input(v.strip())
+            if len(v) > 500:
+                raise ValueError('Adres çok uzun')
+        return v
+    
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v):
+        if v:
+            # Remove non-numeric chars and validate
+            cleaned = re.sub(r'\D', '', v)
+            if len(cleaned) < 10 or len(cleaned) > 15:
+                raise ValueError('Geçersiz telefon numarası')
+        return v
+    
+    @field_validator('tax_number')
+    @classmethod
+    def validate_tax_number(cls, v):
+        if v:
+            v = sanitize_input(v.strip())
+            if len(v) > 20:
+                raise ValueError('Vergi numarası çok uzun')
+        return v
 
 class CustomerResponse(BaseModel):
     id: str
@@ -333,13 +645,33 @@ async def register(user_data: UserCreate):
     return {"token": token, "user": user_response}
 
 @api_router.post("/auth/login")
-async def login(credentials: UserLogin):
+async def login(credentials: UserLogin, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Check for brute force attacks
+    if not check_login_attempts(credentials.email, client_ip):
+        logger.warning(f"SECURITY: Too many login attempts for {credentials.email} from {client_ip}")
+        block_ip(client_ip)
+        raise HTTPException(
+            status_code=429, 
+            detail="Çok fazla başarısız giriş denemesi. 15 dakika bekleyin."
+        )
+    
     user = await db.users.find_one({"email": credentials.email})
     if not user:
+        record_login_attempt(credentials.email, client_ip)
         raise HTTPException(status_code=401, detail="Email veya şifre hatalı")
     
     if not bcrypt.checkpw(credentials.password.encode(), user["password"].encode()):
+        record_login_attempt(credentials.email, client_ip)
+        logger.warning(f"SECURITY: Failed login for {credentials.email} from {client_ip}")
         raise HTTPException(status_code=401, detail="Email veya şifre hatalı")
+    
+    # Successful login - clear attempts
+    key = f"{credentials.email}:{client_ip}"
+    login_attempts.pop(key, None)
+    
+    logger.info(f"AUDIT: Successful login for {credentials.email} from {client_ip}")
     
     token = create_token(user["id"])
     user_response = {k: v for k, v in user.items() if k != "password" and k != "_id"}
