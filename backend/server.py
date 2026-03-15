@@ -69,6 +69,7 @@ class UserResponse(BaseModel):
     company_address: Optional[str] = None
     company_phone: Optional[str] = None
     company_tax_number: Optional[str] = None
+    pdf_template: str = "classic"
     trial_end_date: Optional[str] = None
     subscription_status: str = "trial"
     created_at: str
@@ -78,6 +79,7 @@ class UserUpdate(BaseModel):
     company_address: Optional[str] = None
     company_phone: Optional[str] = None
     company_tax_number: Optional[str] = None
+    pdf_template: Optional[str] = None
 
 class ProductCreate(BaseModel):
     name: str
