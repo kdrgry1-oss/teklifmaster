@@ -184,32 +184,6 @@ const QuoteDetail = () => {
               Düzenle
             </Button>
           </Link>
-          <Button 
-            variant="outline" 
-            onClick={handleShareWhatsApp} 
-            disabled={sharing}
-            data-testid="share-whatsapp-btn"
-          >
-            {sharing ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <MessageSquare className="w-4 h-4 mr-2" />
-            )}
-            WhatsApp
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleShareEmail} 
-            disabled={sharing}
-            data-testid="share-email-btn"
-          >
-            {sharing ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Mail className="w-4 h-4 mr-2" />
-            )}
-            E-posta
-          </Button>
           <Button className="btn-accent" onClick={handleDownloadPdf} data-testid="download-pdf-btn">
             <Download className="w-4 h-4 mr-2" />
             PDF İndir

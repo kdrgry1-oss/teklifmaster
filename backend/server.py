@@ -1492,7 +1492,7 @@ async def delete_quote(quote_id: str, current_user: dict = Depends(get_auth_user
 PDF_TEMPLATES = {
     "classic": {
         "name": "Klasik",
-        "primary": "#0F172A",
+        "primary": "#1E3A5F",
         "accent": "#F97316",
         "bg": "#F8FAFC",
         "border": "#E2E8F0",
@@ -1501,10 +1501,10 @@ PDF_TEMPLATES = {
     },
     "modern": {
         "name": "Modern",
-        "primary": "#7C3AED",
-        "accent": "#10B981",
-        "bg": "#F5F3FF",
-        "border": "#DDD6FE",
+        "primary": "#0F172A",
+        "accent": "#F97316",
+        "bg": "#FFF7ED",
+        "border": "#FED7AA",
         "text": "#374151",
         "muted": "#6B7280"
     },
@@ -1545,16 +1545,28 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     """Generate PDF with specified template and settings"""
     template = PDF_TEMPLATES.get(template_id, PDF_TEMPLATES["classic"])
     
-    # Register Turkish-compatible fonts
-    try:
-        pdfmetrics.registerFont(TTFont('Liberation', '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'))
-        pdfmetrics.registerFont(TTFont('Liberation-Bold', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'))
-        default_font = 'Liberation'
-        bold_font = 'Liberation-Bold'
-    except Exception as e:
-        logging.warning(f"Could not load Liberation font: {e}, falling back to Helvetica")
-        default_font = 'Helvetica'
-        bold_font = 'Helvetica-Bold'
+    # Register Turkish-compatible fonts - try multiple font paths
+    font_paths = [
+        ('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'),
+        ('/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'),
+        ('/usr/share/fonts/TTF/DejaVuSans.ttf', '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf'),
+    ]
+    
+    default_font = 'Helvetica'
+    bold_font = 'Helvetica-Bold'
+    
+    for regular_path, bold_path in font_paths:
+        try:
+            if os.path.exists(regular_path) and os.path.exists(bold_path):
+                pdfmetrics.registerFont(TTFont('TurkishFont', regular_path))
+                pdfmetrics.registerFont(TTFont('TurkishFont-Bold', bold_path))
+                default_font = 'TurkishFont'
+                bold_font = 'TurkishFont-Bold'
+                logging.info(f"Loaded Turkish font from {regular_path}")
+                break
+        except Exception as e:
+            logging.warning(f"Could not load font from {regular_path}: {e}")
+            continue
     
     # PDF Settings defaults
     if pdf_settings is None:

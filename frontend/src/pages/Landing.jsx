@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { toast } from 'sonner';
 import { 
   FileText, Mail, Lock, Building2, Loader2, Check, 
-  BarChart3, Users, Package, CreditCard, Share2, 
+  BarChart3, Users, Package, CreditCard, 
   FileDown, Shield, Zap, ArrowRight
 } from 'lucide-react';
 
@@ -93,11 +93,6 @@ const Landing = () => {
       description: 'Müşteri bilgilerinizi kaydedin ve tekliflerinizi takip edin.'
     },
     {
-      icon: Share2,
-      title: 'Kolay Paylaşım',
-      description: 'Tekliflerinizi WhatsApp ve E-posta ile anında paylaşın.'
-    },
-    {
       icon: BarChart3,
       title: 'Raporlama',
       description: 'Satış performansınızı detaylı raporlarla analiz edin.'
@@ -120,7 +115,6 @@ const Landing = () => {
     'Sınırsız ürün kaydı',
     '5 farklı PDF şablonu',
     'Excel import/export',
-    'WhatsApp & E-posta paylaşımı',
     'Detaylı raporlama',
     'Öncelikli destek'
   ];
@@ -212,10 +206,6 @@ const Landing = () => {
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
-              <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <FileText className="w-4 h-4" />
-                Ana Özellik
-              </div>
               <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
                 Profesyonel PDF Teklifler
                 <span className="text-orange-500"> Saniyeler İçinde</span>
