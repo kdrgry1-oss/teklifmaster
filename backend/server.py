@@ -84,6 +84,7 @@ class ProductCreate(BaseModel):
     description: Optional[str] = None
     unit: str = "adet"
     unit_price: float
+    currency: str = "TRY"
     vat_rate: float = 20.0
     image_url: Optional[str] = None
     sku: Optional[str] = None
@@ -95,6 +96,7 @@ class ProductResponse(BaseModel):
     description: Optional[str] = None
     unit: str
     unit_price: float
+    currency: str = "TRY"
     vat_rate: float
     image_url: Optional[str] = None
     sku: Optional[str] = None
