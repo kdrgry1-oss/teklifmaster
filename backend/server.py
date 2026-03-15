@@ -601,6 +601,8 @@ class SubscriptionCreate(BaseModel):
     expire_month: str
     expire_year: str
     cvc: str
+    plan_type: str = "monthly"  # monthly or yearly
+    coupon_code: Optional[str] = None
 
 # Iyzico Checkout Form Request
 class IyzicoCheckoutRequest(BaseModel):
@@ -2034,11 +2036,57 @@ async def get_subscription_status(current_user: dict = Depends(get_auth_user)):
 
 @api_router.post("/subscription/subscribe")
 async def create_subscription(card_data: SubscriptionCreate, current_user: dict = Depends(get_auth_user)):
-    """Initialize 3D Secure payment for subscription (100 TL monthly)"""
+    """Initialize 3D Secure payment for subscription"""
     options = get_iyzico_options()
     
     if not IYZICO_API_KEY or not IYZICO_SECRET_KEY:
         raise HTTPException(status_code=500, detail="Ödeme sistemi yapılandırılmamış")
+    
+    # Determine price based on plan type
+    if card_data.plan_type == "yearly":
+        base_price = 2990.00
+        plan_name = "TeklifMaster Yıllık Abonelik"
+        plan_id = "PRO_YEARLY"
+    else:
+        base_price = 299.00
+        plan_name = "TeklifMaster Aylık Abonelik"
+        plan_id = "PRO_MONTHLY"
+    
+    final_price = base_price
+    
+    # Apply coupon if provided
+    if card_data.coupon_code:
+        coupon = await db.coupons.find_one({
+            "code": card_data.coupon_code.upper(),
+            "is_active": True
+        })
+        if coupon:
+            # Check expiry
+            if coupon.get("expires_at"):
+                expires = datetime.fromisoformat(coupon["expires_at"].replace("Z", "+00:00"))
+                if expires < datetime.now(timezone.utc):
+                    raise HTTPException(status_code=400, detail="Kupon süresi dolmuş")
+            
+            # Check max uses
+            if coupon.get("max_uses") and coupon.get("used_count", 0) >= coupon["max_uses"]:
+                raise HTTPException(status_code=400, detail="Kupon kullanım limiti dolmuş")
+            
+            # Calculate discount
+            if coupon["discount_type"] == "percent":
+                discount = base_price * (coupon["discount_value"] / 100)
+            else:
+                discount = coupon["discount_value"]
+            
+            final_price = max(0, base_price - discount)
+            
+            # Increment coupon usage
+            await db.coupons.update_one(
+                {"id": coupon["id"]},
+                {"$inc": {"used_count": 1}}
+            )
+    
+    # Format price for Iyzico (must be string with 2 decimal places)
+    price_str = f"{final_price:.2f}"
     
     # Use the frontend URL for callback
     frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
@@ -2076,11 +2124,11 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
     
     basket_items = [
         {
-            'id': 'PRO_MONTHLY',
-            'name': 'TeklifMaster Aylık Abonelik',
+            'id': plan_id,
+            'name': plan_name,
             'category1': 'Yazılım',
             'itemType': 'VIRTUAL',
-            'price': '299.00'
+            'price': price_str
         }
     ]
     
@@ -2089,8 +2137,8 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
     request = {
         'locale': 'tr',
         'conversationId': conversation_id,
-        'price': '100.00',
-        'paidPrice': '299.00',
+        'price': price_str,
+        'paidPrice': price_str,
         'currency': 'TRY',
         'installment': '1',
         'basketId': f'SUB-{current_user["id"][:8]}',
@@ -2124,7 +2172,8 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
             "card_last_four": card_data.card_number[-4:],
             "card_holder": card_data.card_holder_name,
             "status": "pending_3ds",
-            "amount": 100,
+            "amount": final_price,
+            "plan_type": card_data.plan_type,
             "currency": "TRY",
             "created_at": datetime.now(timezone.utc).isoformat()
         }
@@ -2174,7 +2223,15 @@ async def subscription_callback(request: Request):
             if pending:
                 user_id = pending["user_id"]
                 now = datetime.now(timezone.utc)
-                next_payment = now + timedelta(days=30)
+                plan_type = pending.get("plan_type", "monthly")
+                
+                # Set next payment date based on plan type
+                if plan_type == "yearly":
+                    next_payment = now + timedelta(days=365)
+                    period = "yearly"
+                else:
+                    next_payment = now + timedelta(days=30)
+                    period = "monthly"
                 
                 subscription_doc = {
                     "id": str(uuid.uuid4()),
@@ -2186,10 +2243,11 @@ async def subscription_callback(request: Request):
                     "card_association": result.get('cardAssociation', 'UNKNOWN'),
                     "status": "active",
                     "plan_name": "Pro",
-                    "amount": 100,
+                    "plan_type": plan_type,
+                    "amount": pending.get("amount", 299),
                     "currency": "TRY",
-                    "period": "monthly",
-                    "paid_price": float(result.get('paidPrice', 100)),
+                    "period": period,
+                    "paid_price": float(result.get('paidPrice', pending.get("amount", 299))),
                     "next_payment_date": next_payment.isoformat(),
                     "created_at": now.isoformat()
                 }

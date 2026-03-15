@@ -140,6 +140,8 @@ const Subscription = () => {
         ...cardData,
         card_number: cleanCardNumber,
         expire_year: cardData.expire_year.length === 2 ? '20' + cardData.expire_year : cardData.expire_year,
+        plan_type: selectedPlan,
+        coupon_code: appliedCoupon ? couponCode : null,
       };
       
       const response = await subscriptionAPI.subscribe(data);
