@@ -3,6 +3,34 @@ import axios from 'axios';
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API_URL = `${BACKEND_URL}/api`;
 
+// Generate a simple device fingerprint
+const generateFingerprint = () => {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.textBaseline = 'top';
+  ctx.font = '14px Arial';
+  ctx.fillText('fingerprint', 2, 2);
+  const canvasData = canvas.toDataURL();
+  
+  const data = [
+    navigator.userAgent,
+    navigator.language,
+    screen.width + 'x' + screen.height,
+    new Date().getTimezoneOffset(),
+    navigator.hardwareConcurrency || 'unknown',
+    canvasData.slice(-50)
+  ].join('|');
+  
+  // Simple hash
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    const char = data.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+};
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -34,7 +62,9 @@ api.interceptors.response.use(
 
 // Auth
 export const authAPI = {
-  register: (data) => api.post('/auth/register', data),
+  register: (data) => api.post('/auth/register', data, {
+    headers: { 'X-Device-Fingerprint': generateFingerprint() }
+  }),
   login: (data) => api.post('/auth/login', data),
   getMe: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
@@ -136,6 +166,11 @@ export const adminAPI = {
   getCampaigns: () => api.get('/admin/campaigns'),
   sendCampaign: (data) => api.post('/admin/campaigns/send', data),
   makeAdmin: (email) => api.post(`/admin/make-admin/${email}`),
+  // Fraud prevention
+  getFraudReport: () => api.get('/admin/fraud-report'),
+  getBlockedIPs: () => api.get('/admin/blocked-ips'),
+  blockIP: (ip) => api.post(`/admin/block-ip/${ip}`),
+  unblockIP: (ip) => api.delete(`/admin/unblock-ip/${ip}`),
 };
 
 // Helper to format currency

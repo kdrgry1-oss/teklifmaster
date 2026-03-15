@@ -264,6 +264,10 @@ const AdminPanel = () => {
             <Mail className="w-4 h-4" />
             Kampanyalar
           </TabsTrigger>
+          <TabsTrigger value="fraud" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            Fraud Kontrolü
+          </TabsTrigger>
         </TabsList>
 
         {/* Users Tab */}
@@ -281,7 +285,7 @@ const AdminPanel = () => {
                       <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">Şirket</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">E-posta</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">Durum</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">Deneme Bitiş</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">IP Adresi</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">Teklifler</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">Kayıt</th>
                     </tr>
@@ -295,9 +299,7 @@ const AdminPanel = () => {
                         </td>
                         <td className="py-3 px-4 text-slate-600">{u.email}</td>
                         <td className="py-3 px-4">{getStatusBadge(u.subscription_status)}</td>
-                        <td className="py-3 px-4 text-slate-600">
-                          {u.trial_end_date ? formatDate(u.trial_end_date) : '-'}
-                        </td>
+                        <td className="py-3 px-4 text-slate-600 font-mono text-xs">{u.registration_ip || '-'}</td>
                         <td className="py-3 px-4 text-slate-600">{u.quotes_count || 0}</td>
                         <td className="py-3 px-4 text-slate-600">{formatDate(u.created_at)}</td>
                       </tr>
@@ -424,6 +426,100 @@ const AdminPanel = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Fraud Tab */}
+        <TabsContent value="fraud">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-red-500" />
+                  Şüpheli IP Adresleri
+                </CardTitle>
+                <CardDescription>Aynı IP'den birden fazla kayıt yapan kullanıcılar</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {users.filter(u => {
+                  const sameIpCount = users.filter(u2 => u2.registration_ip && u2.registration_ip === u.registration_ip).length;
+                  return sameIpCount > 1;
+                }).length === 0 ? (
+                  <p className="text-center py-4 text-slate-500">Şüpheli aktivite bulunamadı</p>
+                ) : (
+                  <div className="space-y-2">
+                    {[...new Set(users.filter(u => {
+                      const sameIpCount = users.filter(u2 => u2.registration_ip && u2.registration_ip === u.registration_ip).length;
+                      return sameIpCount > 1;
+                    }).map(u => u.registration_ip))].map(ip => (
+                      <div key={ip} className="p-3 bg-red-50 rounded-lg border border-red-200">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-mono font-bold">{ip}</span>
+                            <span className="ml-2 text-sm text-red-600">
+                              ({users.filter(u => u.registration_ip === ip).length} kayıt)
+                            </span>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={async () => {
+                              try {
+                                await adminAPI.blockIP(ip);
+                                toast.success('IP engellendi');
+                              } catch (error) {
+                                toast.error(error.response?.data?.detail || 'IP engellenemedi');
+                              }
+                            }}
+                          >
+                            Engelle
+                          </Button>
+                        </div>
+                        <div className="mt-2 text-sm text-slate-600">
+                          {users.filter(u => u.registration_ip === ip).map(u => u.email).join(', ')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Benzer Şirket Adları</CardTitle>
+                <CardDescription>Aynı veya benzer şirket adlarına sahip hesaplar</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const companyGroups = {};
+                  users.forEach(u => {
+                    const normalized = u.company_name?.toLowerCase().trim();
+                    if (!companyGroups[normalized]) companyGroups[normalized] = [];
+                    companyGroups[normalized].push(u);
+                  });
+                  const duplicates = Object.entries(companyGroups).filter(([_, arr]) => arr.length > 1);
+                  
+                  if (duplicates.length === 0) {
+                    return <p className="text-center py-4 text-slate-500">Tekrarlanan şirket adı bulunamadı</p>;
+                  }
+                  
+                  return (
+                    <div className="space-y-2">
+                      {duplicates.map(([name, arr]) => (
+                        <div key={name} className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                          <span className="font-medium">{name}</span>
+                          <span className="ml-2 text-sm text-yellow-700">({arr.length} hesap)</span>
+                          <div className="mt-1 text-sm text-slate-600">
+                            {arr.map(u => u.email).join(', ')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 

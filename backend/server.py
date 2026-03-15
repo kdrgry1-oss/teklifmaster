@@ -729,10 +729,61 @@ async def get_auth_user(authorization: str = Header(None)):
 # ============== AUTH ENDPOINTS ==============
 
 @api_router.post("/auth/register")
-async def register(user_data: UserCreate):
-    existing = await db.users.find_one({"email": user_data.email})
-    if existing:
+async def register(user_data: UserCreate, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # Get forwarded IP if behind proxy
+    forwarded_ip = request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+    if forwarded_ip:
+        client_ip = forwarded_ip
+    
+    # ============== FRAUD PREVENTION CHECKS ==============
+    
+    # 1. Check if email already exists
+    existing_email = await db.users.find_one({"email": user_data.email})
+    if existing_email:
         raise HTTPException(status_code=400, detail="Bu email zaten kayıtlı")
+    
+    # 2. Check if company name already exists (case insensitive)
+    existing_company = await db.users.find_one({
+        "company_name": {"$regex": f"^{user_data.company_name}$", "$options": "i"}
+    })
+    if existing_company:
+        raise HTTPException(status_code=400, detail="Bu şirket adı zaten kayıtlı. Eğer bu sizin şirketinizse lütfen giriş yapın.")
+    
+    # 3. Check for too many registrations from same IP (within 24 hours)
+    one_day_ago = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    ip_registrations = await db.users.count_documents({
+        "registration_ip": client_ip,
+        "created_at": {"$gte": one_day_ago}
+    })
+    if ip_registrations >= 3:
+        logger.warning(f"FRAUD: Too many registrations from IP {client_ip}")
+        raise HTTPException(
+            status_code=429, 
+            detail="Bu IP adresinden çok fazla kayıt yapılmış. Lütfen daha sonra tekrar deneyin."
+        )
+    
+    # 4. Check for blocked IPs
+    blocked_ip = await db.blocked_ips.find_one({"ip": client_ip})
+    if blocked_ip:
+        raise HTTPException(status_code=403, detail="Kayıt yapılamıyor. Destek ile iletişime geçin.")
+    
+    # 5. Check fingerprint if provided (browser fingerprint)
+    fingerprint = request.headers.get("X-Device-Fingerprint", "")
+    if fingerprint:
+        existing_fingerprint = await db.users.find_one({
+            "device_fingerprint": fingerprint,
+            "subscription_status": {"$in": ["trial", "expired"]}
+        })
+        if existing_fingerprint:
+            logger.warning(f"FRAUD: Duplicate fingerprint detected: {fingerprint[:20]}...")
+            raise HTTPException(
+                status_code=400, 
+                detail="Bu cihazdan daha önce kayıt yapılmış. Lütfen giriş yapın veya destek ile iletişime geçin."
+            )
+    
+    # ============== CREATE USER ==============
     
     hashed_password = bcrypt.hashpw(user_data.password.encode(), bcrypt.gensalt()).decode()
     trial_end = datetime.now(timezone.utc) + timedelta(days=7)
@@ -752,13 +803,20 @@ async def register(user_data: UserCreate):
         "pdf_description_length": "full",
         "trial_end_date": trial_end.isoformat(),
         "subscription_status": "trial",
+        "registration_ip": client_ip,
+        "device_fingerprint": fingerprint if fingerprint else None,
+        "last_login_ip": None,
+        "is_admin": False,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
     await db.users.insert_one(user_doc)
     
+    # Log registration for monitoring
+    logger.info(f"NEW REGISTRATION: {user_data.email} from IP {client_ip}")
+    
     token = create_token(user_doc["id"])
-    user_response = {k: v for k, v in user_doc.items() if k != "password" and k != "_id"}
+    user_response = {k: v for k, v in user_doc.items() if k not in ["password", "_id", "registration_ip", "device_fingerprint"]}
     
     return {"token": token, "user": user_response}
 
@@ -2427,6 +2485,8 @@ async def admin_get_users(current_user: dict = Depends(get_auth_user)):
     for user in users:
         count = await db.quotes.count_documents({"user_id": user["id"]})
         user["quotes_count"] = count
+        # Include registration IP for admin view
+        user["registration_ip"] = user.get("registration_ip", "Bilinmiyor")
     
     return users
 
@@ -2626,6 +2686,77 @@ async def make_user_admin(user_email: str, current_user: dict = Depends(get_auth
         raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
     
     return {"message": f"{user_email} artık yönetici"}
+
+# ============== IP BLOCKING ==============
+
+@api_router.post("/admin/block-ip/{ip_address}")
+async def admin_block_ip(ip_address: str, current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    
+    existing = await db.blocked_ips.find_one({"ip": ip_address})
+    if existing:
+        raise HTTPException(status_code=400, detail="Bu IP zaten engellenmiş")
+    
+    await db.blocked_ips.insert_one({
+        "ip": ip_address,
+        "blocked_at": datetime.now(timezone.utc).isoformat(),
+        "blocked_by": current_user["id"]
+    })
+    
+    logger.warning(f"ADMIN: IP {ip_address} blocked by {current_user['email']}")
+    return {"message": f"IP {ip_address} engellendi"}
+
+@api_router.delete("/admin/unblock-ip/{ip_address}")
+async def admin_unblock_ip(ip_address: str, current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    
+    result = await db.blocked_ips.delete_one({"ip": ip_address})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Bu IP engellenmemiş")
+    
+    return {"message": f"IP {ip_address} engeli kaldırıldı"}
+
+@api_router.get("/admin/blocked-ips")
+async def admin_get_blocked_ips(current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    ips = await db.blocked_ips.find({}, {"_id": 0}).to_list(1000)
+    return ips
+
+@api_router.get("/admin/fraud-report")
+async def admin_get_fraud_report(current_user: dict = Depends(get_auth_user)):
+    """Get fraud detection report"""
+    await check_admin(current_user)
+    
+    # Find IPs with multiple registrations
+    pipeline = [
+        {"$group": {"_id": "$registration_ip", "count": {"$sum": 1}, "emails": {"$push": "$email"}}},
+        {"$match": {"count": {"$gt": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    suspicious_ips = await db.users.aggregate(pipeline).to_list(100)
+    
+    # Find duplicate company names
+    company_pipeline = [
+        {"$group": {"_id": {"$toLower": "$company_name"}, "count": {"$sum": 1}, "emails": {"$push": "$email"}}},
+        {"$match": {"count": {"$gt": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    duplicate_companies = await db.users.aggregate(company_pipeline).to_list(100)
+    
+    # Find users with duplicate fingerprints
+    fingerprint_pipeline = [
+        {"$match": {"device_fingerprint": {"$ne": None}}},
+        {"$group": {"_id": "$device_fingerprint", "count": {"$sum": 1}, "emails": {"$push": "$email"}}},
+        {"$match": {"count": {"$gt": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    duplicate_fingerprints = await db.users.aggregate(fingerprint_pipeline).to_list(100)
+    
+    return {
+        "suspicious_ips": suspicious_ips,
+        "duplicate_companies": duplicate_companies,
+        "duplicate_fingerprints": duplicate_fingerprints
+    }
 
 # Include the router in the main app
 app.include_router(api_router)
