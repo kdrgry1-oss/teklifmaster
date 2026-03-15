@@ -88,6 +88,7 @@ const Products = () => {
         sku: product.sku || '',
         unit: product.unit,
         unit_price: product.unit_price.toString(),
+        currency: product.currency || 'TRY',
         vat_rate: product.vat_rate,
         image_url: product.image_url || '',
       });
@@ -99,6 +100,7 @@ const Products = () => {
         sku: '',
         unit: 'adet',
         unit_price: '',
+        currency: 'TRY',
         vat_rate: 20,
         image_url: '',
       });
