@@ -38,6 +38,13 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 import tempfile
 import aiofiles
 
+# Optional: Resend for email (only if configured)
+try:
+    import resend
+    RESEND_AVAILABLE = True
+except ImportError:
+    RESEND_AVAILABLE = False
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -66,6 +73,12 @@ fernet = Fernet(ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else 
 IYZICO_API_KEY = os.environ.get('IYZICO_API_KEY', '')
 IYZICO_SECRET_KEY = os.environ.get('IYZICO_SECRET_KEY', '')
 IYZICO_BASE_URL = os.environ.get('IYZICO_BASE_URL', 'api.iyzipay.com')
+
+# Resend Email Settings (optional)
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'noreply@teklifmaster.com')
+if RESEND_AVAILABLE and RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
 
 # ============== SECURITY UTILITIES ==============
 
@@ -816,8 +829,8 @@ async def forgot_password(request: PasswordResetRequest):
     })
     
     # Send email if Resend is configured
-    if RESEND_API_KEY and RESEND_API_KEY != 're_your_api_key_here':
-        frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+    if RESEND_AVAILABLE and RESEND_API_KEY and RESEND_API_KEY != 're_your_api_key_here':
+        frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
         reset_link = f"{frontend_url}/reset-password?token={reset_token}"
         
         html_content = f"""
@@ -1911,7 +1924,7 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
         raise HTTPException(status_code=500, detail="Ödeme sistemi yapılandırılmamış")
     
     # Use the frontend URL for callback
-    frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+    frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
     callback_url = f"{frontend_url}/subscription/callback"
     
     # Prepare 3D Secure payment request
@@ -2072,7 +2085,7 @@ async def subscription_callback(request: Request):
                 await db.pending_payments.delete_one({"conversation_id": conversation_id})
                 
                 # Redirect to success page
-                frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+                frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
                 return HTMLResponse(content=f"""
                     <html>
                     <head>
@@ -2085,7 +2098,7 @@ async def subscription_callback(request: Request):
                 """)
         
         # Payment failed
-        frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+        frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
         error_msg = result.get('errorMessage', 'Ödeme başarısız')
         return HTMLResponse(content=f"""
             <html>
@@ -2100,7 +2113,7 @@ async def subscription_callback(request: Request):
         
     except Exception as e:
         logger.error(f"Subscription callback error: {str(e)}")
-        frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+        frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
         return HTMLResponse(content=f"""
             <html>
             <head>
