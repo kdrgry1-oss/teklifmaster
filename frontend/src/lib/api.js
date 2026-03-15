@@ -45,6 +45,7 @@ export const authAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  getPdfTemplates: () => api.get('/pdf-templates'),
 };
 
 // Products
