@@ -5,9 +5,23 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Skeleton } from '../components/ui/skeleton';
 import { toast } from 'sonner';
-import { Plus, Trash2, CreditCard, Loader2, Building } from 'lucide-react';
+import { Plus, Trash2, CreditCard, Loader2, Building, DollarSign } from 'lucide-react';
+
+const CURRENCIES = [
+  { value: 'TRY', label: '₺ Türk Lirası', symbol: '₺' },
+  { value: 'USD', label: '$ Amerikan Doları', symbol: '$' },
+  { value: 'EUR', label: '€ Euro', symbol: '€' },
+  { value: 'GBP', label: '£ İngiliz Sterlini', symbol: '£' },
+];
+
+const ACCOUNT_TYPES = [
+  { value: 'checking', label: 'Vadesiz Hesap' },
+  { value: 'savings', label: 'Vadeli Hesap' },
+  { value: 'foreign', label: 'Döviz Hesabı' },
+];
 
 const BankAccounts = () => {
   const [accounts, setAccounts] = useState([]);
@@ -18,6 +32,8 @@ const BankAccounts = () => {
     bank_name: '',
     iban: '',
     account_holder: '',
+    currency: 'TRY',
+    account_type: 'checking',
   });
 
   useEffect(() => {
@@ -35,17 +51,46 @@ const BankAccounts = () => {
     }
   };
 
-  const formatIBAN = (value) => {
-    const cleaned = value.replace(/\s/g, '').toUpperCase();
+  const formatIBAN = (value, isTR = true) => {
+    let cleaned = value.replace(/\s/g, '').toUpperCase();
+    // TR hesaplarda otomatik TR prefix
+    if (isTR && !cleaned.startsWith('TR') && cleaned.length > 0) {
+      // Sadece rakam girildiyse başa TR ekle
+      if (/^\d/.test(cleaned)) {
+        cleaned = 'TR' + cleaned;
+      }
+    }
     const parts = cleaned.match(/.{1,4}/g) || [];
     return parts.join(' ');
   };
 
   const handleIBANChange = (e) => {
-    const formatted = formatIBAN(e.target.value);
-    if (formatted.replace(/\s/g, '').length <= 26) {
+    const isTR = formData.currency === 'TRY';
+    const maxLength = isTR ? 26 : 34; // IBAN max 34 karakter
+    const formatted = formatIBAN(e.target.value, isTR);
+    if (formatted.replace(/\s/g, '').length <= maxLength) {
       setFormData({ ...formData, iban: formatted });
     }
+  };
+
+  const handleCurrencyChange = (value) => {
+    setFormData({ 
+      ...formData, 
+      currency: value,
+      iban: value === 'TRY' ? 'TR' : '',
+      account_type: value !== 'TRY' ? 'foreign' : 'checking'
+    });
+  };
+
+  const openDialog = () => {
+    setFormData({
+      bank_name: '',
+      iban: 'TR',
+      account_holder: '',
+      currency: 'TRY',
+      account_type: 'checking',
+    });
+    setDialogOpen(true);
   };
 
   const handleSave = async () => {
@@ -55,9 +100,19 @@ const BankAccounts = () => {
     }
 
     const cleanIBAN = formData.iban.replace(/\s/g, '');
-    if (cleanIBAN.length !== 26 || !cleanIBAN.startsWith('TR')) {
-      toast.error('Geçerli bir TR IBAN giriniz');
-      return;
+    
+    // TR IBAN validasyonu
+    if (formData.currency === 'TRY') {
+      if (cleanIBAN.length !== 26 || !cleanIBAN.startsWith('TR')) {
+        toast.error('Geçerli bir TR IBAN giriniz (26 karakter)');
+        return;
+      }
+    } else {
+      // Döviz hesapları için minimum IBAN uzunluğu
+      if (cleanIBAN.length < 15) {
+        toast.error('Geçerli bir IBAN giriniz');
+        return;
+      }
     }
 
     setSaving(true);
@@ -68,7 +123,6 @@ const BankAccounts = () => {
       });
       toast.success('Banka hesabı eklendi');
       setDialogOpen(false);
-      setFormData({ bank_name: '', iban: '', account_holder: '' });
       fetchAccounts();
     } catch (error) {
       toast.error('İşlem başarısız');
@@ -89,6 +143,11 @@ const BankAccounts = () => {
     } catch (error) {
       toast.error('Hesap silinemedi');
     }
+  };
+
+  const displayIBAN = (iban) => {
+    const parts = iban.match(/.{1,4}/g) || [];
+    return parts.join(' ');
   };
 
   if (loading) {
@@ -120,7 +179,7 @@ const BankAccounts = () => {
           <h1 className="text-2xl font-bold text-slate-900">Banka Hesapları</h1>
           <p className="text-slate-500">Teklif PDF'lerinizde görünecek IBAN bilgileri</p>
         </div>
-        <Button className="btn-accent" onClick={() => setDialogOpen(true)} data-testid="add-bank-btn">
+        <Button className="btn-accent" onClick={openDialog} data-testid="add-bank-btn">
           <Plus className="w-4 h-4 mr-2" />
           Hesap Ekle
         </Button>
@@ -134,7 +193,7 @@ const BankAccounts = () => {
             <p className="text-sm text-blue-800 font-medium">Nasıl Kullanılır?</p>
             <p className="text-sm text-blue-700">
               Teklif oluştururken hangi banka hesaplarının PDF'te görüneceğini seçebilirsiniz.
-              Birden fazla hesap ekleyebilir ve her teklif için farklı hesaplar seçebilirsiniz.
+              TL ve döviz hesapları ekleyebilirsiniz.
             </p>
           </div>
         </CardContent>
@@ -146,7 +205,7 @@ const BankAccounts = () => {
           <CardContent className="py-12 text-center">
             <Building className="w-12 h-12 mx-auto mb-4 text-slate-300" />
             <p className="text-slate-500 mb-4">Henüz banka hesabı eklenmedi</p>
-            <Button onClick={() => setDialogOpen(true)} data-testid="add-first-bank-btn">
+            <Button onClick={openDialog} data-testid="add-first-bank-btn">
               <Plus className="w-4 h-4 mr-2" />
               İlk Hesabınızı Ekleyin
             </Button>
@@ -154,40 +213,64 @@ const BankAccounts = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {accounts.map((account) => (
-            <Card key={account.id} className="card-hover" data-testid={`bank-card-${account.id}`}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center">
-                      <Building className="w-5 h-5 text-slate-600" />
+          {accounts.map((account) => {
+            const currency = CURRENCIES.find(c => c.value === account.currency) || CURRENCIES[0];
+            const accountType = ACCOUNT_TYPES.find(t => t.value === account.account_type);
+            return (
+              <Card key={account.id} className="card-hover" data-testid={`bank-card-${account.id}`}>
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        account.currency === 'TRY' ? 'bg-slate-100' : 'bg-emerald-100'
+                      }`}>
+                        {account.currency === 'TRY' ? (
+                          <Building className="w-5 h-5 text-slate-600" />
+                        ) : (
+                          <DollarSign className="w-5 h-5 text-emerald-600" />
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{account.bank_name}</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            account.currency === 'TRY' 
+                              ? 'bg-slate-100 text-slate-600' 
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
+                            {currency.symbol} {currency.label.split(' ')[1] || currency.value}
+                          </span>
+                          {accountType && (
+                            <span className="text-xs text-slate-400">{accountType.label}</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-slate-900">{account.bank_name}</h3>
-                      {account.account_holder && (
-                        <p className="text-sm text-slate-500">{account.account_holder}</p>
-                      )}
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(account)}
+                      className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                      data-testid={`delete-bank-${account.id}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(account)}
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                    data-testid={`delete-bank-${account.id}`}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-500 mb-1">IBAN</p>
-                  <p className="font-mono text-sm text-slate-900 tracking-wider">
-                    {formatIBAN(account.iban)}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="bg-slate-50 rounded-lg p-3">
+                    <p className="text-xs text-slate-500 mb-1">IBAN</p>
+                    <p className="font-mono text-sm text-slate-900 tracking-wider">
+                      {displayIBAN(account.iban)}
+                    </p>
+                  </div>
+                  {account.account_holder && (
+                    <p className="text-sm text-slate-500 mt-2">
+                      Hesap Sahibi: {account.account_holder}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -198,6 +281,44 @@ const BankAccounts = () => {
             <DialogTitle>Banka Hesabı Ekle</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="currency">Para Birimi</Label>
+                <Select
+                  value={formData.currency}
+                  onValueChange={handleCurrencyChange}
+                >
+                  <SelectTrigger data-testid="bank-currency-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="account_type">Hesap Türü</Label>
+                <Select
+                  value={formData.account_type}
+                  onValueChange={(value) => setFormData({ ...formData, account_type: value })}
+                >
+                  <SelectTrigger data-testid="bank-type-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCOUNT_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div>
               <Label htmlFor="bank_name">Banka Adı *</Label>
               <Input
@@ -214,11 +335,15 @@ const BankAccounts = () => {
                 id="iban"
                 value={formData.iban}
                 onChange={handleIBANChange}
-                placeholder="TR00 0000 0000 0000 0000 0000 00"
+                placeholder={formData.currency === 'TRY' ? 'TR00 0000 0000 0000 0000 0000 00' : 'IBAN numarası'}
                 className="font-mono tracking-wider"
                 data-testid="bank-iban-input"
               />
-              <p className="text-xs text-slate-400 mt-1">26 haneli TR IBAN numarası</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {formData.currency === 'TRY' 
+                  ? '26 haneli TR IBAN numarası (TR otomatik eklenir)' 
+                  : 'Uluslararası IBAN numarası'}
+              </p>
             </div>
             <div>
               <Label htmlFor="account_holder">Hesap Sahibi</Label>
