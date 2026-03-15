@@ -66,7 +66,7 @@ export const Layout = ({ children }) => {
               <div className="w-8 h-8 bg-orange-500 rounded-md flex items-center justify-center">
                 <FileText className="w-5 h-5 text-white" />
               </div>
-              <span className="text-white font-semibold text-lg">QuoteMaster</span>
+              <span className="text-white font-semibold text-lg">TeklifMaster</span>
             </Link>
             <button
               className="lg:hidden text-white/70 hover:text-white"

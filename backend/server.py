@@ -263,7 +263,7 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
 
 # Create the main app
 app = FastAPI(
-    title="QuoteMaster Pro API",
+    title="TeklifMaster API",
     docs_url=None,  # Disable Swagger UI in production
     redoc_url=None,  # Disable ReDoc in production
     openapi_url=None  # Disable OpenAPI schema in production
@@ -630,7 +630,7 @@ async def create_iyzico_checkout_form(user: dict, callback_url: str) -> dict:
     basket_items = [
         {
             'id': 'PRO_MONTHLY',
-            'name': 'QuoteMaster Pro Aylık Abonelik',
+            'name': 'TeklifMaster Aylık Abonelik',
             'category1': 'Yazılım',
             'itemType': 'VIRTUAL',
             'price': '100.00'
@@ -836,7 +836,7 @@ async def forgot_password(request: PasswordResetRequest):
         html_content = f"""
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <div style="background: #0F172A; padding: 20px; text-align: center;">
-                <h1 style="color: #F97316; margin: 0;">QuoteMaster Pro</h1>
+                <h1 style="color: #F97316; margin: 0;">TeklifMaster</h1>
             </div>
             <div style="padding: 30px; background: #f8fafc;">
                 <h2 style="color: #1e293b;">Şifre Sıfırlama</h2>
@@ -855,7 +855,7 @@ async def forgot_password(request: PasswordResetRequest):
             params = {
                 "from": SENDER_EMAIL,
                 "to": [request.email],
-                "subject": "QuoteMaster Pro - Şifre Sıfırlama",
+                "subject": "TeklifMaster - Şifre Sıfırlama",
                 "html": html_content
             }
             await asyncio.to_thread(resend.Emails.send, params)
@@ -1118,7 +1118,7 @@ async def download_excel_template():
     # Add instructions sheet
     ws2 = wb.create_sheet("Açıklamalar")
     instructions = [
-        ["QuoteMaster Pro - Ürün İçe Aktarma Şablonu"],
+        ["TeklifMaster - Ürün İçe Aktarma Şablonu"],
         [""],
         ["Kullanım Talimatları:"],
         ["1. 'Ürünler' sayfasındaki örnek verileri silin ve kendi ürünlerinizi girin"],
@@ -1720,7 +1720,7 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     
     # Footer
     elements.append(Spacer(1, 30))
-    elements.append(Paragraph(f"Bu teklif {validity_date} tarihine kadar gecerlidir. | QuoteMaster Pro ile olusturuldu.", styles['Footer']))
+    elements.append(Paragraph(f"Bu teklif {validity_date} tarihine kadar gecerlidir. | TeklifMaster ile olusturuldu.", styles['Footer']))
     
     # Build PDF
     doc.build(elements)
@@ -1788,7 +1788,7 @@ async def share_quote_email(quote_id: str, request: EmailShareRequest, current_u
     html_content = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #0F172A; padding: 20px; text-align: center;">
-            <h1 style="color: #F97316; margin: 0;">{user.get('company_name', 'QuoteMaster Pro')}</h1>
+            <h1 style="color: #F97316; margin: 0;">{user.get('company_name', 'TeklifMaster')}</h1>
         </div>
         <div style="padding: 30px; background: #f8fafc;">
             <h2 style="color: #1e293b;">Fiyat Teklifi</h2>
@@ -1823,7 +1823,7 @@ async def share_quote_email(quote_id: str, request: EmailShareRequest, current_u
         params = {
             "from": SENDER_EMAIL,
             "to": [request.recipient_email],
-            "subject": f"{quote['quote_number']} - {user.get('company_name', 'QuoteMaster Pro')} Fiyat Teklifi",
+            "subject": f"{quote['quote_number']} - {user.get('company_name', 'TeklifMaster')} Fiyat Teklifi",
             "html": html_content,
             "attachments": [
                 {
@@ -1960,7 +1960,7 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
     basket_items = [
         {
             'id': 'PRO_MONTHLY',
-            'name': 'QuoteMaster Pro Aylık Abonelik',
+            'name': 'TeklifMaster Aylık Abonelik',
             'category1': 'Yazılım',
             'itemType': 'VIRTUAL',
             'price': '100.00'

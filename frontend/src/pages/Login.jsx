@@ -82,7 +82,7 @@ const Login = () => {
             <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
               <FileText className="w-7 h-7" />
             </div>
-            <span className="text-2xl font-bold">QuoteMaster Pro</span>
+            <span className="text-2xl font-bold">TeklifMaster</span>
           </div>
           <h1 className="text-4xl font-bold mb-4 leading-tight">
             Profesyonel Teklifler,<br />Saniyeler İçinde
@@ -112,7 +112,7 @@ const Login = () => {
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
               <FileText className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-primary">QuoteMaster Pro</span>
+            <span className="text-xl font-bold text-primary">TeklifMaster</span>
           </div>
 
           <Card className="border-0 shadow-lg">
