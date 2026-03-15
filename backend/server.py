@@ -764,17 +764,63 @@ async def delete_quote(quote_id: str, current_user: dict = Depends(get_auth_user
 
 # ============== PDF GENERATION ==============
 
+# ============== PDF TEMPLATES ==============
+
+PDF_TEMPLATES = {
+    "classic": {
+        "name": "Klasik",
+        "primary": "#0F172A",
+        "accent": "#F97316",
+        "bg": "#F8FAFC",
+        "border": "#E2E8F0",
+        "text": "#374151",
+        "muted": "#64748B"
+    },
+    "modern": {
+        "name": "Modern",
+        "primary": "#7C3AED",
+        "accent": "#10B981",
+        "bg": "#F5F3FF",
+        "border": "#DDD6FE",
+        "text": "#374151",
+        "muted": "#6B7280"
+    },
+    "professional": {
+        "name": "Profesyonel",
+        "primary": "#1F2937",
+        "accent": "#1F2937",
+        "bg": "#F9FAFB",
+        "border": "#D1D5DB",
+        "text": "#111827",
+        "muted": "#6B7280"
+    },
+    "elegant": {
+        "name": "Zarif",
+        "primary": "#78350F",
+        "accent": "#B45309",
+        "bg": "#FFFBEB",
+        "border": "#FDE68A",
+        "text": "#451A03",
+        "muted": "#92400E"
+    },
+    "ocean": {
+        "name": "Okyanus",
+        "primary": "#0369A1",
+        "accent": "#0891B2",
+        "bg": "#F0F9FF",
+        "border": "#BAE6FD",
+        "text": "#0C4A6E",
+        "muted": "#0369A1"
+    }
+}
+
 def format_currency_pdf(amount):
     """Format currency for PDF"""
     return f"{amount:,.2f} TL".replace(",", "X").replace(".", ",").replace("X", ".")
 
-@api_router.get("/quotes/{quote_id}/pdf")
-async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_auth_user)):
-    quote = await db.quotes.find_one({"id": quote_id, "user_id": current_user["id"]}, {"_id": 0})
-    if not quote:
-        raise HTTPException(status_code=404, detail="Teklif bulunamadı")
-    
-    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
+def generate_pdf_with_template(quote, user, template_id="classic"):
+    """Generate PDF with specified template"""
+    template = PDF_TEMPLATES.get(template_id, PDF_TEMPLATES["classic"])
     
     # Format dates
     created_date = datetime.fromisoformat(quote["created_at"].replace("Z", "+00:00")).strftime("%d.%m.%Y")
@@ -784,14 +830,14 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
     pdf_buffer = BytesIO()
     doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
     
-    # Styles
+    # Styles based on template
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name='Title2', fontSize=18, fontName='Helvetica-Bold', textColor=colors.HexColor('#0F172A'), spaceAfter=10))
-    styles.add(ParagraphStyle(name='Subtitle', fontSize=10, fontName='Helvetica', textColor=colors.HexColor('#64748B')))
-    styles.add(ParagraphStyle(name='QuoteNumber', fontSize=14, fontName='Helvetica-Bold', textColor=colors.HexColor('#F97316'), alignment=2))
-    styles.add(ParagraphStyle(name='SectionTitle', fontSize=11, fontName='Helvetica-Bold', textColor=colors.HexColor('#0F172A'), spaceBefore=20, spaceAfter=10))
-    styles.add(ParagraphStyle(name='Normal2', fontSize=9, fontName='Helvetica', textColor=colors.HexColor('#374151')))
-    styles.add(ParagraphStyle(name='Footer', fontSize=8, fontName='Helvetica', textColor=colors.HexColor('#94A3B8'), alignment=1))
+    styles.add(ParagraphStyle(name='Title2', fontSize=18, fontName='Helvetica-Bold', textColor=colors.HexColor(template['primary']), spaceAfter=10))
+    styles.add(ParagraphStyle(name='Subtitle', fontSize=10, fontName='Helvetica', textColor=colors.HexColor(template['muted'])))
+    styles.add(ParagraphStyle(name='QuoteNumber', fontSize=14, fontName='Helvetica-Bold', textColor=colors.HexColor(template['accent']), alignment=2))
+    styles.add(ParagraphStyle(name='SectionTitle', fontSize=11, fontName='Helvetica-Bold', textColor=colors.HexColor(template['primary']), spaceBefore=20, spaceAfter=10))
+    styles.add(ParagraphStyle(name='Normal2', fontSize=9, fontName='Helvetica', textColor=colors.HexColor(template['text'])))
+    styles.add(ParagraphStyle(name='Footer', fontSize=8, fontName='Helvetica', textColor=colors.HexColor(template['muted']), alignment=1))
     
     elements = []
     
@@ -812,7 +858,7 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
-        ('LINEBELOW', (0, 1), (-1, 1), 2, colors.HexColor('#F97316')),
+        ('LINEBELOW', (0, 1), (-1, 1), 2, colors.HexColor(template['accent'])),
     ]))
     elements.append(header_table)
     elements.append(Spacer(1, 20))
@@ -831,8 +877,8 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
     
     customer_table = Table([[Paragraph(customer_info, styles['Normal2'])]], colWidths=[16*cm])
     customer_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
-        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(template['bg'])),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor(template['border'])),
         ('LEFTPADDING', (0, 0), (-1, -1), 10),
         ('RIGHTPADDING', (0, 0), (-1, -1), 10),
         ('TOPPADDING', (0, 0), (-1, -1), 10),
@@ -844,7 +890,6 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
     # Items Section
     elements.append(Paragraph("TEKLIF DETAYLARI", styles['SectionTitle']))
     
-    # Items table header
     items_data = [['#', 'Urun/Hizmet', 'Miktar', 'Birim Fiyat', 'Iskonto', 'KDV', 'Toplam']]
     
     for idx, item in enumerate(quote["items"], 1):
@@ -861,7 +906,7 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
     
     items_table = Table(items_data, colWidths=[1*cm, 5*cm, 2*cm, 2.5*cm, 1.5*cm, 1.5*cm, 2.5*cm])
     items_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0F172A')),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(template['primary'])),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
@@ -871,8 +916,8 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
         ('FONTSIZE', (0, 1), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
         ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor(template['border'])),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor(template['bg'])]),
     ]))
     elements.append(items_table)
     elements.append(Spacer(1, 10))
@@ -892,8 +937,8 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
         ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 1), 9),
         ('FONTSIZE', (0, 2), (-1, 2), 12),
-        ('TEXTCOLOR', (1, 2), (1, 2), colors.HexColor('#F97316')),
-        ('LINEABOVE', (0, 2), (-1, 2), 2, colors.HexColor('#0F172A')),
+        ('TEXTCOLOR', (1, 2), (1, 2), colors.HexColor(template['accent'])),
+        ('LINEABOVE', (0, 2), (-1, 2), 2, colors.HexColor(template['primary'])),
         ('TOPPADDING', (0, 0), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
@@ -905,14 +950,15 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
         elements.append(Paragraph("ODEME BILGILERI", styles['SectionTitle']))
         
         for account in quote["bank_accounts"]:
-            bank_info = f"<b>{account['bank_name']}</b><br/>IBAN: {account['iban']}"
+            currency_symbol = "₺" if account.get('currency', 'TRY') == 'TRY' else account.get('currency', '')
+            bank_info = f"<b>{account['bank_name']}</b> ({currency_symbol})<br/>IBAN: {account['iban']}"
             if account.get('account_holder'):
                 bank_info += f"<br/>Hesap Sahibi: {account['account_holder']}"
             
             bank_table = Table([[Paragraph(bank_info, styles['Normal2'])]], colWidths=[16*cm])
             bank_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8FAFC')),
-                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#E2E8F0')),
+                ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor(template['bg'])),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor(template['border'])),
                 ('LEFTPADDING', (0, 0), (-1, -1), 10),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 10),
                 ('TOPPADDING', (0, 0), (-1, -1), 8),
@@ -943,6 +989,35 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
     # Build PDF
     doc.build(elements)
     pdf_buffer.seek(0)
+    
+    return pdf_buffer
+
+@api_router.get("/pdf-templates")
+async def get_pdf_templates(current_user: dict = Depends(get_auth_user)):
+    """Get available PDF templates"""
+    templates = []
+    for key, value in PDF_TEMPLATES.items():
+        templates.append({
+            "id": key,
+            "name": value["name"],
+            "primary": value["primary"],
+            "accent": value["accent"]
+        })
+    return templates
+
+@api_router.get("/quotes/{quote_id}/pdf")
+async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_auth_user)):
+    quote = await db.quotes.find_one({"id": quote_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not quote:
+        raise HTTPException(status_code=404, detail="Teklif bulunamadı")
+    
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
+    
+    # Get user's selected template
+    template_id = user.get("pdf_template", "classic")
+    
+    # Generate PDF with template
+    pdf_buffer = generate_pdf_with_template(quote, user, template_id)
     
     filename = f"Teklif_{quote['quote_number']}_{quote['customer_name'].replace(' ', '_')}.pdf"
     
