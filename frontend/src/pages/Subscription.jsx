@@ -285,56 +285,125 @@ const Subscription = () => {
         </CardContent>
       </Card>
 
-      {/* Plan Card */}
-      <Card className="border-2 border-orange-200" data-testid="plan-card">
-        <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xl">Pro Plan</CardTitle>
-              <CardDescription>Tüm özellikler sınırsız</CardDescription>
+      {/* Plan Cards */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Monthly Plan */}
+        <Card 
+          className={`cursor-pointer transition-all ${selectedPlan === 'monthly' ? 'border-2 border-orange-500 shadow-lg' : 'border-2 border-slate-200 hover:border-slate-300'}`}
+          onClick={() => setSelectedPlan('monthly')}
+          data-testid="monthly-plan-card"
+        >
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Aylık Plan</CardTitle>
+                <CardDescription>Esnek ödeme</CardDescription>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-slate-900">₺299</p>
+                <p className="text-sm text-slate-500">/ay</p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-3xl font-bold text-orange-500">₺299</p>
-              <p className="text-sm text-slate-500">/ay</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {features.map((feature, idx) => {
-              const Icon = feature.icon;
-              return (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                    <Icon className="w-4 h-4 text-orange-600" />
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-2 mb-4">
+              {features.slice(0, 3).map((feature, idx) => {
+                const Icon = feature.icon;
+                return (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Icon className="w-4 h-4 text-orange-500" />
+                    <span className="text-sm text-slate-600">{feature.text}</span>
                   </div>
-                  <span className="text-sm">{feature.text}</span>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+            {!isSubscribed && (
+              <Button
+                className={`w-full ${selectedPlan === 'monthly' ? 'btn-accent' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                onClick={(e) => { e.stopPropagation(); setSelectedPlan('monthly'); setDialogOpen(true); }}
+              >
+                <CreditCard className="w-4 h-4 mr-2" />
+                Aylık Başla
+              </Button>
+            )}
+          </CardContent>
+        </Card>
 
-          {!isSubscribed ? (
-            <Button
-              className="w-full btn-accent h-12 text-base"
-              onClick={() => setDialogOpen(true)}
-              data-testid="subscribe-btn"
-            >
-              <CreditCard className="w-5 h-5 mr-2" />
-              Pro'ya Yükselt
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              className="w-full text-red-500 hover:text-red-600 hover:bg-red-50"
-              onClick={handleCancel}
-              data-testid="cancel-subscription-btn"
-            >
-              Aboneliği İptal Et
-            </Button>
-          )}
-        </CardContent>
-      </Card>
+        {/* Yearly Plan */}
+        <Card 
+          className={`cursor-pointer transition-all relative ${selectedPlan === 'yearly' ? 'border-2 border-orange-500 shadow-lg' : 'border-2 border-slate-200 hover:border-slate-300'}`}
+          onClick={() => setSelectedPlan('yearly')}
+          data-testid="yearly-plan-card"
+        >
+          <div className="absolute -top-3 right-4 bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+            2 AY BEDAVA
+          </div>
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Yıllık Plan</CardTitle>
+                <CardDescription>En avantajlı</CardDescription>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-orange-500">₺2990</p>
+                <p className="text-sm text-slate-500">/yıl</p>
+                <p className="text-xs text-green-600 font-medium">₺249/ay</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="bg-green-50 text-green-700 text-sm p-2 rounded-lg mb-4 text-center">
+              <span className="line-through text-slate-400 mr-1">₺3588</span>
+              <span className="font-semibold">₺598 tasarruf!</span>
+            </div>
+            <div className="space-y-2 mb-4">
+              {features.map((feature, idx) => {
+                const Icon = feature.icon;
+                return (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Icon className="w-4 h-4 text-orange-500" />
+                    <span className="text-sm text-slate-600">{feature.text}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {!isSubscribed && (
+              <Button
+                className="w-full btn-accent"
+                onClick={(e) => { e.stopPropagation(); setSelectedPlan('yearly'); setDialogOpen(true); }}
+              >
+                <CreditCard className="w-4 h-4 mr-2" />
+                Yıllık Başla
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {isSubscribed && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-slate-900">Aktif Abonelik</p>
+                {subscriptionData.subscription && (
+                  <p className="text-sm text-slate-600">
+                    Sonraki ödeme: {formatDate(subscriptionData.subscription.next_payment_date)}
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                onClick={handleCancel}
+                data-testid="cancel-subscription-btn"
+              >
+                Aboneliği İptal Et
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Info Card */}
       <Card className="bg-blue-50 border-blue-200">
