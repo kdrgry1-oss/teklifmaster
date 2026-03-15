@@ -34,6 +34,13 @@ const UNITS = [
 
 const VAT_RATES = [0, 1, 10, 20];
 
+const CURRENCIES = [
+  { value: 'TRY', label: '₺ TL', symbol: '₺' },
+  { value: 'USD', label: '$ USD', symbol: '$' },
+  { value: 'EUR', label: '€ EUR', symbol: '€' },
+  { value: 'GBP', label: '£ GBP', symbol: '£' },
+];
+
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +59,7 @@ const Products = () => {
     sku: '',
     unit: 'adet',
     unit_price: '',
+    currency: 'TRY',
     vat_rate: 20,
     image_url: '',
   });
