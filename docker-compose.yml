@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: teklifmaster-mongo
+    restart: always
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=quotemaster_prod
+    networks:
+      - teklifmaster-network
+
+  backend:
+    build: ./backend
+    container_name: teklifmaster-backend
+    restart: always
+    depends_on:
+      - mongodb
+    environment:
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=quotemaster_prod
+      - CORS_ORIGINS=https://teklifmaster.com,https://www.teklifmaster.com
+      - FRONTEND_URL=https://teklifmaster.com
+      - IYZICO_API_KEY=${IYZICO_API_KEY}
+      - IYZICO_SECRET_KEY=${IYZICO_SECRET_KEY}
+      - IYZICO_BASE_URL=api.iyzipay.com
+      - JWT_SECRET=${JWT_SECRET}
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - teklifmaster-network
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_BACKEND_URL=https://teklifmaster.com
+    container_name: teklifmaster-frontend
+    restart: always
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - teklifmaster-network
+
+volumes:
+  mongodb_data:
+  backend_uploads:
+
+networks:
+  teklifmaster-network:
+    driver: bridge
