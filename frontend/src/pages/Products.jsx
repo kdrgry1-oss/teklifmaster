@@ -18,6 +18,7 @@ import {
   Package,
   Loader2,
   Image as ImageIcon,
+  Copy,
 } from 'lucide-react';
 
 const UNITS = [
@@ -150,6 +151,27 @@ const Products = () => {
       fetchProducts();
     } catch (error) {
       toast.error('Ürün silinemedi');
+    }
+  };
+
+  const handleClone = async (product) => {
+    try {
+      const clonedData = {
+        name: `${product.name} (Kopya)`,
+        description: product.description || '',
+        sku: product.sku ? `${product.sku}-KOPYA` : '',
+        unit: product.unit,
+        price: product.price,
+        vat_rate: product.vat_rate,
+        currency: product.currency || 'TRY',
+        category: product.category || '',
+        image_url: product.image_url || '',
+      };
+      await productsAPI.create(clonedData);
+      toast.success('Ürün klonlandı');
+      fetchProducts();
+    } catch (error) {
+      toast.error('Ürün klonlanamadı');
     }
   };
 
@@ -367,6 +389,15 @@ const Products = () => {
                         )}
                       </div>
                       <div className="flex gap-1 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleClone(product)}
+                          title="Klonla"
+                          data-testid={`clone-product-${product.id}`}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
