@@ -16,24 +16,35 @@ import {
   ChevronRight,
   Users,
   BarChart3,
+  Shield,
 } from 'lucide-react';
 
-const navItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/products', label: 'Ürün Kataloğu', icon: Package },
-  { path: '/customers', label: 'Müşteriler', icon: Users },
-  { path: '/quotes', label: 'Teklifler', icon: FileText },
-  { path: '/reports', label: 'Raporlar', icon: BarChart3 },
-  { path: '/bank-accounts', label: 'Banka Hesapları', icon: CreditCard },
-  { path: '/settings', label: 'Ayarlar', icon: Settings },
-  { path: '/subscription', label: 'Abonelik', icon: Building2 },
-];
+const getNavItems = (isAdmin) => {
+  const items = [
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/products', label: 'Ürün Kataloğu', icon: Package },
+    { path: '/customers', label: 'Müşteriler', icon: Users },
+    { path: '/quotes', label: 'Teklifler', icon: FileText },
+    { path: '/reports', label: 'Raporlar', icon: BarChart3 },
+    { path: '/bank-accounts', label: 'Banka Hesapları', icon: CreditCard },
+    { path: '/settings', label: 'Ayarlar', icon: Settings },
+    { path: '/subscription', label: 'Abonelik', icon: Building2 },
+  ];
+  
+  if (isAdmin) {
+    items.push({ path: '/admin', label: 'Yönetici Paneli', icon: Shield });
+  }
+  
+  return items;
+};
 
 export const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  const navItems = getNavItems(user?.is_admin);
 
   const handleLogout = () => {
     logout();

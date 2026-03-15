@@ -167,12 +167,12 @@ const Landing = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Button 
                   size="lg"
-                  className="bg-orange-500 hover:bg-orange-600 text-lg px-8"
+                  className="bg-orange-500 hover:bg-orange-600 text-base sm:text-lg px-6 sm:px-8"
                   onClick={() => { setActiveTab('register'); setShowAuthModal(true); }}
                   data-testid="hero-cta-btn"
                 >
                   7 Gün Ücretsiz Dene
-                  <ArrowRight className="w-5 h-5 ml-2" />
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                 </Button>
               </div>
               <div className="mt-8 flex items-center justify-center lg:justify-start gap-8">
@@ -248,7 +248,7 @@ const Landing = () => {
             <CardContent className="p-8">
               <div className="text-center mb-8">
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-5xl font-bold text-slate-900">₺100</span>
+                  <span className="text-5xl font-bold text-slate-900">₺200</span>
                   <span className="text-slate-500">/ay</span>
                 </div>
                 <p className="text-slate-600 mt-2">KDV dahil</p>

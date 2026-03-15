@@ -48,6 +48,7 @@ const NewQuote = () => {
   const [selectedProducts, setSelectedProducts] = useState([]);
 
   const [formData, setFormData] = useState({
+    quote_name: '',
     customer_id: '',
     customer_name: '',
     customer_email: '',
@@ -84,6 +85,7 @@ const NewQuote = () => {
         const quoteRes = await quotesAPI.getById(editId);
         const quote = quoteRes.data;
         setFormData({
+          quote_name: quote.quote_name || '',
           customer_id: quote.customer_id || '',
           customer_name: quote.customer_name,
           customer_email: quote.customer_email || '',
@@ -220,6 +222,10 @@ const NewQuote = () => {
   const finalTotal = totals.total - generalDiscountAmount;
 
   const handleSubmit = async () => {
+    if (!formData.quote_name) {
+      toast.error('Teklif adı zorunludur');
+      return;
+    }
     if (!formData.customer_name) {
       toast.error('Müşteri adı zorunludur');
       return;
@@ -232,6 +238,7 @@ const NewQuote = () => {
     setSaving(true);
     try {
       const quoteData = {
+        quote_name: formData.quote_name,
         customer_id: formData.customer_id || null,
         customer_name: formData.customer_name,
         customer_email: formData.customer_email || null,
@@ -316,6 +323,29 @@ const NewQuote = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column - Form */}
         <div className="space-y-6">
+          {/* Quote Name */}
+          <Card data-testid="quote-name-card">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Teklif Bilgileri
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div>
+                <Label htmlFor="quote_name">Teklif Adı *</Label>
+                <Input
+                  id="quote_name"
+                  value={formData.quote_name}
+                  onChange={(e) => setFormData({ ...formData, quote_name: e.target.value })}
+                  placeholder="Örn: ABC Şirketi Web Projesi Teklifi"
+                  data-testid="quote-name-input"
+                />
+                <p className="text-xs text-slate-500 mt-1">Bu ad teklifinizi tanımlamak için kullanılacaktır</p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Customer Info */}
           <Card data-testid="customer-info-card">
             <CardHeader className="pb-4 flex flex-row items-center justify-between">

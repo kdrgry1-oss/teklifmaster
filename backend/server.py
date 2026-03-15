@@ -37,6 +37,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 import tempfile
 import aiofiles
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Optional: Resend for email (only if configured)
 try:
@@ -76,9 +79,18 @@ IYZICO_BASE_URL = os.environ.get('IYZICO_BASE_URL', 'api.iyzipay.com')
 
 # Resend Email Settings (optional)
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
-SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'noreply@teklifmaster.com')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'info@teklifmaster.com')
 if RESEND_AVAILABLE and RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
+
+# SMTP Settings for Hostinger
+SMTP_HOST = os.environ.get('SMTP_HOST', 'smtp.hostinger.com')
+SMTP_PORT = int(os.environ.get('SMTP_PORT', '465'))
+SMTP_USER = os.environ.get('SMTP_USER', 'info@teklifmaster.com')
+SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+
+# Admin email
+ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'kdrgry@gmail.com')
 
 # ============== SECURITY UTILITIES ==============
 
@@ -322,6 +334,7 @@ class UserResponse(BaseModel):
     pdf_template: str = "classic"
     trial_end_date: Optional[str] = None
     subscription_status: str = "trial"
+    is_admin: bool = False
     created_at: str
 
 class UserUpdate(BaseModel):
@@ -440,6 +453,7 @@ class QuoteItemCreate(BaseModel):
     discount_percent: float = 0.0
 
 class QuoteCreate(BaseModel):
+    quote_name: str
     customer_id: Optional[str] = None
     customer_name: str
     customer_email: Optional[str] = None
@@ -456,6 +470,7 @@ class QuoteCreate(BaseModel):
     general_discount_value: float = 0.0
 
 class QuoteUpdate(BaseModel):
+    quote_name: Optional[str] = None
     customer_id: Optional[str] = None
     customer_name: Optional[str] = None
     customer_email: Optional[str] = None
@@ -558,6 +573,7 @@ class QuoteResponse(BaseModel):
     id: str
     user_id: str
     quote_number: str
+    quote_name: Optional[str] = None
     customer_id: Optional[str] = None
     customer_name: str
     customer_email: Optional[str] = None
@@ -633,7 +649,7 @@ async def create_iyzico_checkout_form(user: dict, callback_url: str) -> dict:
             'name': 'TeklifMaster Aylık Abonelik',
             'category1': 'Yazılım',
             'itemType': 'VIRTUAL',
-            'price': '100.00'
+            'price': '200.00'
         }
     ]
     
@@ -641,7 +657,7 @@ async def create_iyzico_checkout_form(user: dict, callback_url: str) -> dict:
         'locale': 'tr',
         'conversationId': str(uuid.uuid4()),
         'price': '100.00',
-        'paidPrice': '100.00',
+        'paidPrice': '200.00',
         'currency': 'TRY',
         'basketId': f'BASKET-{user["id"][:8]}',
         'paymentGroup': 'SUBSCRIPTION',
@@ -1309,6 +1325,7 @@ async def create_quote(quote_data: QuoteCreate, current_user: dict = Depends(get
         "id": str(uuid.uuid4()),
         "user_id": current_user["id"],
         "quote_number": await get_next_quote_number(current_user["id"]),
+        "quote_name": quote_data.quote_name,
         "customer_id": quote_data.customer_id,
         "customer_name": quote_data.customer_name,
         "customer_email": quote_data.customer_email,
@@ -1370,7 +1387,7 @@ async def update_quote(quote_id: str, quote_data: QuoteUpdate, current_user: dic
     update_dict = {}
     
     # Update basic fields
-    for field in ["customer_id", "customer_name", "customer_email", "customer_phone", "customer_address", "customer_tax_number", "notes", "include_vat"]:
+    for field in ["quote_name", "customer_id", "customer_name", "customer_email", "customer_phone", "customer_address", "customer_tax_number", "notes", "include_vat"]:
         value = getattr(quote_data, field, None)
         if value is not None:
             update_dict[field] = value
@@ -1963,7 +1980,7 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
             'name': 'TeklifMaster Aylık Abonelik',
             'category1': 'Yazılım',
             'itemType': 'VIRTUAL',
-            'price': '100.00'
+            'price': '200.00'
         }
     ]
     
@@ -1973,7 +1990,7 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
         'locale': 'tr',
         'conversationId': conversation_id,
         'price': '100.00',
-        'paidPrice': '100.00',
+        'paidPrice': '200.00',
         'currency': 'TRY',
         'installment': '1',
         'basketId': f'SUB-{current_user["id"][:8]}',
@@ -2323,6 +2340,260 @@ async def get_reports(start_date: str = None, end_date: str = None, current_user
         "top_customers": top_customers,
         "monthly_breakdown": monthly_breakdown
     }
+
+# ============== ADMIN MODELS ==============
+
+class CouponCreate(BaseModel):
+    code: str
+    discount_type: str  # percent, amount
+    discount_value: float
+    max_uses: Optional[int] = None
+    expires_at: Optional[str] = None
+    is_active: bool = True
+
+class CouponResponse(BaseModel):
+    id: str
+    code: str
+    discount_type: str
+    discount_value: float
+    max_uses: Optional[int] = None
+    used_count: int = 0
+    expires_at: Optional[str] = None
+    is_active: bool
+    created_at: str
+
+class CampaignCreate(BaseModel):
+    subject: str
+    content: str
+    recipient_type: str  # all, active, trial, expired
+
+class AdminUserResponse(BaseModel):
+    id: str
+    email: str
+    company_name: str
+    subscription_status: str
+    trial_end_date: Optional[str] = None
+    created_at: str
+    quotes_count: int = 0
+
+# ============== ADMIN HELPER ==============
+
+async def check_admin(user: dict):
+    """Check if user is admin"""
+    if not user.get('is_admin', False):
+        raise HTTPException(status_code=403, detail="Yönetici yetkisi gerekli")
+
+# ============== ADMIN ENDPOINTS ==============
+
+@api_router.get("/admin/users")
+async def admin_get_users(current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(1000)
+    
+    # Get quote counts for each user
+    for user in users:
+        count = await db.quotes.count_documents({"user_id": user["id"]})
+        user["quotes_count"] = count
+    
+    return users
+
+@api_router.get("/admin/stats")
+async def admin_get_stats(current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    
+    total_users = await db.users.count_documents({})
+    active_users = await db.users.count_documents({"subscription_status": "active"})
+    trial_users = await db.users.count_documents({"subscription_status": "trial"})
+    expired_users = await db.users.count_documents({"subscription_status": "expired"})
+    total_quotes = await db.quotes.count_documents({})
+    total_coupons = await db.coupons.count_documents({})
+    
+    return {
+        "total_users": total_users,
+        "active_users": active_users,
+        "trial_users": trial_users,
+        "expired_users": expired_users,
+        "total_quotes": total_quotes,
+        "total_coupons": total_coupons
+    }
+
+# ============== COUPON ENDPOINTS ==============
+
+@api_router.get("/admin/coupons")
+async def admin_get_coupons(current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    coupons = await db.coupons.find({}, {"_id": 0}).to_list(100)
+    return coupons
+
+@api_router.post("/admin/coupons")
+async def admin_create_coupon(coupon_data: CouponCreate, current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    
+    # Check if code exists
+    existing = await db.coupons.find_one({"code": coupon_data.code.upper()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Bu kupon kodu zaten mevcut")
+    
+    coupon_doc = {
+        "id": str(uuid.uuid4()),
+        "code": coupon_data.code.upper(),
+        "discount_type": coupon_data.discount_type,
+        "discount_value": coupon_data.discount_value,
+        "max_uses": coupon_data.max_uses,
+        "used_count": 0,
+        "expires_at": coupon_data.expires_at,
+        "is_active": coupon_data.is_active,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.coupons.insert_one(coupon_doc)
+    del coupon_doc["_id"]
+    return coupon_doc
+
+@api_router.delete("/admin/coupons/{coupon_id}")
+async def admin_delete_coupon(coupon_id: str, current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    result = await db.coupons.delete_one({"id": coupon_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Kupon bulunamadı")
+    return {"message": "Kupon silindi"}
+
+@api_router.put("/admin/coupons/{coupon_id}/toggle")
+async def admin_toggle_coupon(coupon_id: str, current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    coupon = await db.coupons.find_one({"id": coupon_id})
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Kupon bulunamadı")
+    
+    new_status = not coupon.get("is_active", True)
+    await db.coupons.update_one({"id": coupon_id}, {"$set": {"is_active": new_status}})
+    return {"message": "Kupon durumu güncellendi", "is_active": new_status}
+
+# Public endpoint for validating coupon
+@api_router.post("/coupons/validate")
+async def validate_coupon(code: str):
+    coupon = await db.coupons.find_one({"code": code.upper(), "is_active": True}, {"_id": 0})
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Geçersiz kupon kodu")
+    
+    # Check if expired
+    if coupon.get("expires_at"):
+        expires = datetime.fromisoformat(coupon["expires_at"].replace("Z", "+00:00"))
+        if expires < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Kupon süresi dolmuş")
+    
+    # Check max uses
+    if coupon.get("max_uses") and coupon.get("used_count", 0) >= coupon["max_uses"]:
+        raise HTTPException(status_code=400, detail="Kupon kullanım limiti dolmuş")
+    
+    return {
+        "valid": True,
+        "discount_type": coupon["discount_type"],
+        "discount_value": coupon["discount_value"]
+    }
+
+# ============== EMAIL CAMPAIGN ENDPOINTS ==============
+
+def send_smtp_email(to_email: str, subject: str, html_content: str):
+    """Send email via SMTP"""
+    try:
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = SMTP_USER
+        msg['To'] = to_email
+        
+        html_part = MIMEText(html_content, 'html')
+        msg.attach(html_part)
+        
+        with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
+            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.sendmail(SMTP_USER, to_email, msg.as_string())
+        
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email to {to_email}: {e}")
+        return False
+
+@api_router.post("/admin/campaigns/send")
+async def admin_send_campaign(campaign: CampaignCreate, background_tasks: BackgroundTasks, current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    
+    # Get recipients based on type
+    query = {}
+    if campaign.recipient_type == "active":
+        query["subscription_status"] = "active"
+    elif campaign.recipient_type == "trial":
+        query["subscription_status"] = "trial"
+    elif campaign.recipient_type == "expired":
+        query["subscription_status"] = "expired"
+    
+    users = await db.users.find(query, {"email": 1}).to_list(10000)
+    emails = [u["email"] for u in users]
+    
+    if not emails:
+        raise HTTPException(status_code=400, detail="Hiç alıcı bulunamadı")
+    
+    # Save campaign record
+    campaign_doc = {
+        "id": str(uuid.uuid4()),
+        "subject": campaign.subject,
+        "content": campaign.content,
+        "recipient_type": campaign.recipient_type,
+        "recipient_count": len(emails),
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "sent_by": current_user["id"]
+    }
+    await db.campaigns.insert_one(campaign_doc)
+    
+    # Send emails in background
+    html_template = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #0F172A; padding: 20px; text-align: center;">
+            <h1 style="color: #F97316; margin: 0;">TeklifMaster</h1>
+        </div>
+        <div style="padding: 30px; background: #f8fafc;">
+            {campaign.content}
+        </div>
+        <div style="padding: 20px; text-align: center; background: #e2e8f0;">
+            <p style="color: #64748b; font-size: 12px;">Bu e-posta TeklifMaster tarafından gönderilmiştir.</p>
+        </div>
+    </div>
+    """
+    
+    # Send to each recipient
+    success_count = 0
+    for email in emails:
+        if send_smtp_email(email, campaign.subject, html_template):
+            success_count += 1
+    
+    return {
+        "message": f"Kampanya {success_count}/{len(emails)} alıcıya gönderildi",
+        "total": len(emails),
+        "sent": success_count
+    }
+
+@api_router.get("/admin/campaigns")
+async def admin_get_campaigns(current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    campaigns = await db.campaigns.find({}, {"_id": 0}).sort("sent_at", -1).to_list(100)
+    return campaigns
+
+# ============== MAKE USER ADMIN ==============
+
+@api_router.post("/admin/make-admin/{user_email}")
+async def make_user_admin(user_email: str, current_user: dict = Depends(get_auth_user)):
+    await check_admin(current_user)
+    
+    result = await db.users.update_one(
+        {"email": user_email},
+        {"$set": {"is_admin": True}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    
+    return {"message": f"{user_email} artık yönetici"}
 
 # Include the router in the main app
 app.include_router(api_router)

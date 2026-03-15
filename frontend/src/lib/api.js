@@ -122,6 +122,20 @@ export const subscriptionAPI = {
   getStatus: () => api.get('/subscription/status'),
   subscribe: (data) => api.post('/subscription/subscribe', data),
   cancel: () => api.post('/subscription/cancel'),
+  validateCoupon: (code) => api.post(`/coupons/validate?code=${code}`),
+};
+
+// Admin
+export const adminAPI = {
+  getUsers: () => api.get('/admin/users'),
+  getStats: () => api.get('/admin/stats'),
+  getCoupons: () => api.get('/admin/coupons'),
+  createCoupon: (data) => api.post('/admin/coupons', data),
+  deleteCoupon: (id) => api.delete(`/admin/coupons/${id}`),
+  toggleCoupon: (id) => api.put(`/admin/coupons/${id}/toggle`),
+  getCampaigns: () => api.get('/admin/campaigns'),
+  sendCampaign: (data) => api.post('/admin/campaigns/send', data),
+  makeAdmin: (email) => api.post(`/admin/make-admin/${email}`),
 };
 
 // Helper to format currency

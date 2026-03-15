@@ -29,6 +29,11 @@ const Subscription = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+  const BASE_PRICE = 200;
 
   const [cardData, setCardData] = useState({
     card_holder_name: '',
@@ -73,6 +78,37 @@ const Subscription = () => {
     const cleaned = value.replace(/\D/g, '');
     const parts = cleaned.match(/.{1,4}/g) || [];
     return parts.join(' ').slice(0, 19);
+  };
+
+  const calculateFinalPrice = () => {
+    if (!appliedCoupon) return BASE_PRICE;
+    if (appliedCoupon.discount_type === 'percent') {
+      return BASE_PRICE - (BASE_PRICE * appliedCoupon.discount_value / 100);
+    }
+    return Math.max(0, BASE_PRICE - appliedCoupon.discount_value);
+  };
+
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) {
+      toast.error('Kupon kodu girin');
+      return;
+    }
+    setApplyingCoupon(true);
+    try {
+      const response = await subscriptionAPI.validateCoupon(couponCode);
+      setAppliedCoupon(response.data);
+      toast.success('Kupon uygulandı!');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Geçersiz kupon kodu');
+      setAppliedCoupon(null);
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode('');
   };
 
   const handleSubscribe = async () => {
@@ -255,7 +291,7 @@ const Subscription = () => {
               <CardDescription>Tüm özellikler sınırsız</CardDescription>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-orange-500">₺100</p>
+              <p className="text-3xl font-bold text-orange-500">₺200</p>
               <p className="text-sm text-slate-500">/ay</p>
             </div>
           </div>
@@ -321,9 +357,47 @@ const Subscription = () => {
             <div className="p-4 bg-orange-50 rounded-lg mb-4">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Pro Plan - Aylık</span>
-                <span className="text-xl font-bold text-orange-500">₺100</span>
+                <div className="text-right">
+                  {appliedCoupon && (
+                    <span className="text-sm text-slate-400 line-through mr-2">₺{BASE_PRICE}</span>
+                  )}
+                  <span className="text-xl font-bold text-orange-500">₺{calculateFinalPrice()}</span>
+                </div>
               </div>
+              {appliedCoupon && (
+                <div className="mt-2 flex items-center justify-between text-sm">
+                  <span className="text-green-600">
+                    Kupon: {appliedCoupon.discount_type === 'percent' 
+                      ? `%${appliedCoupon.discount_value} indirim` 
+                      : `₺${appliedCoupon.discount_value} indirim`}
+                  </span>
+                  <button onClick={handleRemoveCoupon} className="text-red-500 hover:underline">
+                    Kaldır
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Coupon Code */}
+            {!appliedCoupon && (
+              <div className="flex gap-2">
+                <Input
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="Kupon kodu"
+                  className="flex-1"
+                  data-testid="coupon-input"
+                />
+                <Button 
+                  variant="outline" 
+                  onClick={handleApplyCoupon}
+                  disabled={applyingCoupon}
+                  data-testid="apply-coupon-btn"
+                >
+                  {applyingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Uygula'}
+                </Button>
+              </div>
+            )}
 
             <div>
               <Label htmlFor="card_holder">Kart Üzerindeki İsim</Label>
@@ -408,7 +482,7 @@ const Subscription = () => {
               ) : (
                 <>
                   <CreditCard className="w-4 h-4 mr-2" />
-                  ₺100 Öde
+                  ₺{calculateFinalPrice()} Öde
                 </>
               )}
             </Button>
