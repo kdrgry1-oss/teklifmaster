@@ -18,20 +18,21 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - WhatsApp Web ve Email ile paylaşım
 - Abonelik sistemi (Iyzico entegrasyonu)
 
-## Uygulanan Özellikler (14 Ocak 2025)
+## Uygulanan Özellikler (14-15 Ocak 2025)
 
 ### Backend (FastAPI + MongoDB)
 - [x] JWT tabanlı kullanıcı kimlik doğrulama (register/login)
 - [x] Kullanıcı profili ve şirket bilgileri yönetimi
 - [x] Logo yükleme (Base64)
 - [x] Ürün CRUD API'leri + **görsel yükleme**
-- [x] Excel import/export (/api/products/export/excel, /api/products/import/excel)
+- [x] **Excel import/export** (/api/products/export/excel, /api/products/import/excel) ✓ TEST PASSED
 - [x] Banka hesabı CRUD API'leri
 - [x] **Müşteri CRUD API'leri** (search destekli)
 - [x] Teklif oluşturma/listeleme/detay API'leri
 - [x] **Teklif düzenleme (PUT /api/quotes/{id})**
 - [x] **Müşteri vergi numarası desteği**
 - [x] Teklif hesaplama (satır iskonto, KDV dahil/hariç)
+- [x] **PDF Şablon Sistemi** (5 farklı şablon: Klasik, Modern, Profesyonel, Zarif, Okyanus) ✓ TEST PASSED
 - [x] PDF teklif oluşturma (ReportLab ile) + **vergi no gösterimi**
 - [x] Dashboard istatistikleri API
 - [x] **Rapor API'si** (tarih aralığı, dönüşüm oranı, ciro analizi)
@@ -41,6 +42,7 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - [x] Login/Register sayfası (split-screen tasarım)
 - [x] Dashboard (Bento grid, özet metrikler, son teklifler)
 - [x] Ürün Kataloğu (grid görünüm, arama, CRUD modali, **görsel yükleme**)
+- [x] **Excel Import/Export Butonları** (Ürünler sayfasında) ✓ TEST PASSED
 - [x] **Müşteriler sayfası** (CRUD, arama - isim/email/VKN)
 - [x] Teklifler listesi (filtreleme, durum badge'leri)
 - [x] Yeni Teklif oluşturma (**müşteri seçimi**, vergi no, **çoklu ürün seçimi/arama**)
@@ -48,7 +50,7 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - [x] Teklif detay sayfası (PDF indirme, paylaşım butonları, **düzenle butonu**)
 - [x] **Raporlar sayfası** (tarih aralığı, teklif sayıları, dönüşüm oranı, ciro, top müşteriler)
 - [x] Banka Hesapları yönetimi
-- [x] Şirket Ayarları sayfası (logo yükleme)
+- [x] **Şirket Ayarları sayfası** (logo yükleme + **PDF şablon seçimi**) ✓ TEST PASSED
 - [x] Abonelik sayfası (mock ödeme formu)
 - [x] Responsive sidebar navigasyon
 - [x] Türkçe arayüz
@@ -64,7 +66,7 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - [x] ~~Ürün görseli yükleme~~ ✓
 - [x] ~~Teklif düzenleme özelliği~~ ✓
 - [x] ~~Müşteri veritabanı~~ ✓
-- [ ] Teklif şablonları
+- [x] ~~Teklif şablonları~~ ✓ (5 farklı PDF şablonu)
 - [ ] PDF'e şirket logosu ekleme
 
 ### P2 (Orta Öncelik)
@@ -88,5 +90,10 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 
 ## Sonraki Adımlar
 1. Gerçek Iyzico API anahtarları ile abonelik entegrasyonu
-2. SMTP yapılandırması ile email gönderimi
+2. WhatsApp ve Email ile teklif paylaşma
 3. Kullanıcı testleri ve geri bildirim toplama
+
+## Test Sonuçları (15 Ocak 2025)
+- **PDF Şablon Seçimi**: ✅ 13/13 test geçti (Backend %100)
+- **Excel Import/Export**: ✅ Tüm testler geçti
+- **Test Raporu**: /app/test_reports/iteration_3.json
