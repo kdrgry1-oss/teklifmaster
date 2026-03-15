@@ -472,7 +472,7 @@ const Products = () => {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="unit_price">Birim Fiyat (₺) *</Label>
+                <Label htmlFor="unit_price">Birim Fiyat *</Label>
                 <Input
                   id="unit_price"
                   type="number"
@@ -483,6 +483,24 @@ const Products = () => {
                   className="text-right font-mono"
                   data-testid="product-price-input"
                 />
+              </div>
+              <div>
+                <Label htmlFor="currency">Para Birimi</Label>
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) => setFormData({ ...formData, currency: value })}
+                >
+                  <SelectTrigger data-testid="product-currency-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="vat_rate">KDV Oranı (%)</Label>
