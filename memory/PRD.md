@@ -97,7 +97,17 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - **Database**: MongoDB
 - **PDF Engine**: ReportLab
 - **Auth**: JWT (PyJWT, bcrypt)
+- **Security**: Cryptography (Fernet), Rate Limiting, XSS Protection
 - **Payment**: Iyzico (mock - gerçek entegrasyon bekliyor)
+
+## Güvenlik Özellikleri (15 Ocak 2025)
+- ✅ **Rate Limiting**: 60 istek/dakika limiti
+- ✅ **Brute Force Koruması**: 5 başarısız giriş → 15 dakika IP bloklama
+- ✅ **XSS Koruması**: HTML escape + regex pattern filtreleme
+- ✅ **Secure Headers**: X-Frame-Options (DENY), X-Content-Type-Options, X-XSS-Protection
+- ✅ **Input Validation**: Ürün, müşteri, IBAN doğrulama
+- ✅ **Audit Logging**: Kritik işlemlerin kaydı
+- ✅ **Data Encryption**: Hassas veriler için Fernet şifreleme hazır
 
 ## Sonraki Adımlar
 1. Resend API key yapılandırması (email gönderimi için gerekli)
@@ -108,12 +118,13 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - **PDF Şablon Seçimi**: ✅ 13/13 test geçti
 - **Excel Import/Export**: ✅ Tüm testler geçti
 - **Yeni Özellikler (iteration_4)**: ✅ 11/11 test geçti (%100)
-  - Şifre Sıfırlama: ✅
-  - Excel Şablon İndirme: ✅
-  - Gelişmiş PDF Ayarları: ✅
-  - Genel İskonto: ✅
-  - Email/WhatsApp Paylaşımı: ✅
-- **Test Raporları**: /app/test_reports/iteration_3.json, /app/test_reports/iteration_4.json
+- **Güvenlik Testleri (iteration_5)**: ✅ 20/20 test geçti (%100)
+  - Rate Limiting: ✅
+  - Brute Force Koruması: ✅
+  - XSS Sanitization: ✅
+  - Secure Headers: ✅
+  - Input Validation: ✅
+- **Test Raporları**: /app/test_reports/iteration_3.json, /app/test_reports/iteration_4.json, /app/test_reports/iteration_5.json
 
 ## MOCKED API'ler
 - **Iyzico Abonelik**: Şu an mock, gerçek ödeme yapılmıyor
