@@ -279,6 +279,7 @@ async def register(user_data: UserCreate):
         "company_address": None,
         "company_phone": None,
         "company_tax_number": None,
+        "pdf_template": "classic",
         "trial_end_date": trial_end.isoformat(),
         "subscription_status": "trial",
         "created_at": datetime.now(timezone.utc).isoformat()
