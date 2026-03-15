@@ -22,35 +22,42 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 
 ### Backend (FastAPI + MongoDB)
 - [x] JWT tabanlı kullanıcı kimlik doğrulama (register/login)
+- [x] **Şifre Sıfırlama** (/api/auth/forgot-password, /api/auth/reset-password) ✓ NEW
 - [x] Kullanıcı profili ve şirket bilgileri yönetimi
-- [x] Logo yükleme (Base64)
+- [x] Logo yükleme (Base64) + **PDF'e logo ekleme** ✓ NEW
 - [x] Ürün CRUD API'leri + **görsel yükleme**
-- [x] **Excel import/export** (/api/products/export/excel, /api/products/import/excel) ✓ TEST PASSED
+- [x] **Excel import/export** + **Şablon indirme** (/api/products/template/excel) ✓ NEW
 - [x] Banka hesabı CRUD API'leri
 - [x] **Müşteri CRUD API'leri** (search destekli)
 - [x] Teklif oluşturma/listeleme/detay API'leri
 - [x] **Teklif düzenleme (PUT /api/quotes/{id})**
+- [x] **Genel İskonto** (% ve TL bazlı) ✓ NEW
 - [x] **Müşteri vergi numarası desteği**
 - [x] Teklif hesaplama (satır iskonto, KDV dahil/hariç)
-- [x] **PDF Şablon Sistemi** (5 farklı şablon: Klasik, Modern, Profesyonel, Zarif, Okyanus) ✓ TEST PASSED
+- [x] **PDF Şablon Sistemi** (5 farklı şablon: Klasik, Modern, Profesyonel, Zarif, Okyanus)
+- [x] **Gelişmiş PDF Ayarları** (görsel göster/gizle, boyut, açıklama uzunluğu) ✓ NEW
 - [x] PDF teklif oluşturma (ReportLab ile) + **vergi no gösterimi**
+- [x] **Email ile Teklif Paylaşımı** (Resend entegrasyonu) ✓ NEW
 - [x] Dashboard istatistikleri API
 - [x] **Rapor API'si** (tarih aralığı, dönüşüm oranı, ciro analizi)
 - [x] Iyzico abonelik mock entegrasyonu
 
 ### Frontend (React + Tailwind + shadcn/ui)
 - [x] Login/Register sayfası (split-screen tasarım)
+- [x] **Şifremi Unuttum sayfası** (/forgot-password) ✓ NEW
+- [x] **Şifre Sıfırlama sayfası** (/reset-password) ✓ NEW
 - [x] Dashboard (Bento grid, özet metrikler, son teklifler)
 - [x] Ürün Kataloğu (grid görünüm, arama, CRUD modali, **görsel yükleme**)
-- [x] **Excel Import/Export Butonları** (Ürünler sayfasında) ✓ TEST PASSED
+- [x] **Excel Import/Export + Şablon İndirme Butonları** ✓ NEW
 - [x] **Müşteriler sayfası** (CRUD, arama - isim/email/VKN)
 - [x] Teklifler listesi (filtreleme, durum badge'leri)
 - [x] Yeni Teklif oluşturma (**müşteri seçimi**, vergi no, **çoklu ürün seçimi/arama**)
+- [x] **Genel İskonto UI** (% ve TL seçimi) ✓ NEW
 - [x] **Teklif düzenleme** (/quotes/:id/edit)
-- [x] Teklif detay sayfası (PDF indirme, paylaşım butonları, **düzenle butonu**)
+- [x] Teklif detay sayfası (PDF indirme, **Email dialog**, **WhatsApp paylaşımı**)
 - [x] **Raporlar sayfası** (tarih aralığı, teklif sayıları, dönüşüm oranı, ciro, top müşteriler)
 - [x] Banka Hesapları yönetimi
-- [x] **Şirket Ayarları sayfası** (logo yükleme + **PDF şablon seçimi**) ✓ TEST PASSED
+- [x] **Şirket Ayarları sayfası** (logo yükleme + **PDF şablon seçimi** + **PDF Detay Ayarları**) ✓ NEW
 - [x] Abonelik sayfası (mock ödeme formu)
 - [x] Responsive sidebar navigasyon
 - [x] Türkçe arayüz
@@ -59,19 +66,23 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 
 ### P0 (Kritik - Sonraki Sprint)
 - [ ] Gerçek Iyzico API entegrasyonu
-- [ ] Email ile teklif gönderimi (SMTP yapılandırması)
-- [ ] Şifre sıfırlama fonksiyonu
+- [ ] Resend API key yapılandırması (email gönderimi aktif hale getirilecek)
 
 ### P1 (Yüksek Öncelik)
 - [x] ~~Ürün görseli yükleme~~ ✓
 - [x] ~~Teklif düzenleme özelliği~~ ✓
 - [x] ~~Müşteri veritabanı~~ ✓
 - [x] ~~Teklif şablonları~~ ✓ (5 farklı PDF şablonu)
-- [ ] PDF'e şirket logosu ekleme
+- [x] ~~PDF'e şirket logosu ekleme~~ ✓
+- [x] ~~Şifre sıfırlama~~ ✓
+- [x] ~~WhatsApp/Email ile teklif paylaşımı~~ ✓
+- [x] ~~Genel iskonto (% ve TL)~~ ✓
+- [x] ~~Gelişmiş PDF ayarları~~ ✓
+- [x] ~~Excel şablon indirme~~ ✓
 
 ### P2 (Orta Öncelik)
 - [x] ~~Raporlama ve analitik dashboard~~ ✓
-- [ ] Çoklu para birimi desteği
+- [ ] Çoklu para birimi desteği (döviz kuru API)
 - [ ] Teklif revizyon geçmişi
 - [ ] E-imza entegrasyonu
 
@@ -89,11 +100,21 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - **Payment**: Iyzico (mock - gerçek entegrasyon bekliyor)
 
 ## Sonraki Adımlar
-1. Gerçek Iyzico API anahtarları ile abonelik entegrasyonu
-2. WhatsApp ve Email ile teklif paylaşma
+1. Resend API key yapılandırması (email gönderimi için gerekli)
+2. Gerçek Iyzico API anahtarları ile abonelik entegrasyonu
 3. Kullanıcı testleri ve geri bildirim toplama
 
 ## Test Sonuçları (15 Ocak 2025)
-- **PDF Şablon Seçimi**: ✅ 13/13 test geçti (Backend %100)
+- **PDF Şablon Seçimi**: ✅ 13/13 test geçti
 - **Excel Import/Export**: ✅ Tüm testler geçti
-- **Test Raporu**: /app/test_reports/iteration_3.json
+- **Yeni Özellikler (iteration_4)**: ✅ 11/11 test geçti (%100)
+  - Şifre Sıfırlama: ✅
+  - Excel Şablon İndirme: ✅
+  - Gelişmiş PDF Ayarları: ✅
+  - Genel İskonto: ✅
+  - Email/WhatsApp Paylaşımı: ✅
+- **Test Raporları**: /app/test_reports/iteration_3.json, /app/test_reports/iteration_4.json
+
+## MOCKED API'ler
+- **Iyzico Abonelik**: Şu an mock, gerçek ödeme yapılmıyor
+- **Email Gönderimi**: RESEND_API_KEY gerekli (şu an placeholder)
