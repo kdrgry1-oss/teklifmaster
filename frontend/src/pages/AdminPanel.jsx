@@ -91,8 +91,17 @@ const AdminPanel = () => {
     }
   };
 
+  // Wait for user to load
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
   // Check if user is admin
-  if (!user?.is_admin) {
+  if (!user.is_admin) {
     return <Navigate to="/dashboard" replace />;
   }
 
