@@ -88,11 +88,6 @@ const Landing = () => {
       description: 'Ürünlerinizi kolayca yönetin, fiyatlandırın ve kategorize edin.'
     },
     {
-      icon: FileText,
-      title: 'PDF Teklif Oluşturma',
-      description: 'Profesyonel PDF teklifleri saniyeler içinde oluşturun.'
-    },
-    {
       icon: Users,
       title: 'Müşteri Yönetimi',
       description: 'Müşteri bilgilerinizi kaydedin ve tekliflerinizi takip edin.'
@@ -111,6 +106,11 @@ const Landing = () => {
       icon: FileDown,
       title: 'Excel Import/Export',
       description: 'Ürünlerinizi Excel ile toplu olarak içe/dışa aktarın.'
+    },
+    {
+      icon: CreditCard,
+      title: 'Banka Hesapları',
+      description: 'Birden fazla banka hesabınızı tekliflerinize ekleyin.'
     }
   ];
 
@@ -207,12 +207,119 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* PDF Feature Highlight Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-12 items-center">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                <FileText className="w-4 h-4" />
+                Ana Özellik
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
+                Profesyonel PDF Teklifler
+                <span className="text-orange-500"> Saniyeler İçinde</span>
+              </h2>
+              <p className="text-lg text-slate-600 mb-8">
+                Müşterilerinize gönderebileceğiniz kurumsal görünümlü, detaylı PDF teklifler oluşturun. 
+                Şirket logonuz, ürün resimleri, banka hesap bilgileri ve özel notlarınızla 
+                profesyonel teklifler hazırlayın.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Check className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">5 Farklı Şablon</p>
+                    <p className="text-slate-600 text-sm">Klasik, Modern, Minimal, Kurumsal ve Zarif şablonlar</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Check className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">Şirket Logosu</p>
+                    <p className="text-slate-600 text-sm">Kendi logonuzla markalı teklifler</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Check className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">Ürün Resimleri</p>
+                    <p className="text-slate-600 text-sm">Ürün görselleriyle zengin teklifler</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Check className="w-4 h-4" style={{color: '#22c55e'}} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-slate-900">Banka Hesapları</p>
+                    <p className="text-slate-600 text-sm">Ödeme bilgilerini teklife ekleyin</p>
+                  </div>
+                </div>
+              </div>
+              <Button 
+                size="lg"
+                className="mt-8 bg-orange-500 hover:bg-orange-600"
+                onClick={() => { setActiveTab('register'); setShowAuthModal(true); }}
+              >
+                Hemen Deneyin
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+            <div className="relative">
+              <div className="bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl p-8 shadow-xl">
+                <div className="bg-white rounded-lg shadow-lg p-6 transform rotate-2 hover:rotate-0 transition-transform">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900">Şirket Adınız</p>
+                        <p className="text-xs text-slate-500">Profesyonel Teklif</p>
+                      </div>
+                    </div>
+                    <span className="text-orange-500 font-bold">TKF-001</span>
+                  </div>
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Ürün A x 5</span>
+                      <span className="font-medium">₺2,500</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Ürün B x 10</span>
+                      <span className="font-medium">₺5,000</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-600">Hizmet C</span>
+                      <span className="font-medium">₺1,500</span>
+                    </div>
+                  </div>
+                  <div className="border-t mt-4 pt-4">
+                    <div className="flex justify-between font-bold">
+                      <span>TOPLAM</span>
+                      <span className="text-orange-500">₺9,000</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50" id="features">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
-              İşinizi Kolaylaştıran Özellikler
+              Diğer Özellikler
             </h2>
             <p className="text-lg text-slate-600 max-w-2xl mx-auto">
               TeklifMaster, teklif süreçlerinizi hızlandırmak ve profesyonelleştirmek için 
