@@ -22,7 +22,7 @@ import {
 const getNavItems = (isAdmin) => {
   const items = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/products', label: 'Ürün Kataloğu', icon: Package },
+    { path: '/products', label: 'Ürün / Hizmet', icon: Package },
     { path: '/customers', label: 'Müşteriler', icon: Users },
     { path: '/quotes', label: 'Teklifler', icon: FileText },
     { path: '/reports', label: 'Raporlar', icon: BarChart3 },

@@ -294,7 +294,7 @@ const Products = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Ürün Kataloğu</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Ürün / Hizmet Kataloğu</h1>
           <p className="text-slate-500">{products.length} ürün</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -328,7 +328,7 @@ const Products = () => {
           />
           <Button className="btn-accent" onClick={() => handleOpenDialog()} data-testid="add-product-btn">
             <Plus className="w-4 h-4 mr-2" />
-            Ürün Ekle
+            Ürün / Hizmet Ekle
           </Button>
         </div>
       </div>
@@ -441,7 +441,7 @@ const Products = () => {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg" data-testid="product-dialog">
           <DialogHeader>
-            <DialogTitle>{editingProduct ? 'Ürün Düzenle' : 'Yeni Ürün'}</DialogTitle>
+            <DialogTitle>{editingProduct ? 'Ürün / Hizmet Düzenle' : 'Yeni Ürün / Hizmet'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             {/* Image Upload */}

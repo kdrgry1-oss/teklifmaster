@@ -1106,6 +1106,8 @@ async def import_products_excel(file: UploadFile = File(...), current_user: dict
             unit = str(row[3]) if row[3] else "adet"
             unit_price = float(row[4]) if row[4] else 0
             vat_rate = float(row[5]) if row[5] else 20
+            # Get image URL from 7th column (index 6)
+            image_url = str(row[6]).strip() if len(row) > 6 and row[6] else None
             
             existing = None
             if sku:
@@ -1114,16 +1116,21 @@ async def import_products_excel(file: UploadFile = File(...), current_user: dict
             now = datetime.now(timezone.utc).isoformat()
             
             if existing:
+                update_data = {
+                    "name": name,
+                    "description": description,
+                    "unit": unit,
+                    "unit_price": unit_price,
+                    "vat_rate": vat_rate,
+                    "updated_at": now
+                }
+                # Only update image_url if provided
+                if image_url:
+                    update_data["image_url"] = image_url
+                
                 await db.products.update_one(
                     {"id": existing["id"]},
-                    {"$set": {
-                        "name": name,
-                        "description": description,
-                        "unit": unit,
-                        "unit_price": unit_price,
-                        "vat_rate": vat_rate,
-                        "updated_at": now
-                    }}
+                    {"$set": update_data}
                 )
                 updated_count += 1
             else:
@@ -1136,7 +1143,7 @@ async def import_products_excel(file: UploadFile = File(...), current_user: dict
                     "unit": unit,
                     "unit_price": unit_price,
                     "vat_rate": vat_rate,
-                    "image_url": None,
+                    "image_url": image_url,
                     "created_at": now,
                     "updated_at": now
                 }
@@ -1155,8 +1162,8 @@ async def download_excel_template():
     ws = wb.active
     ws.title = "Ürünler"
     
-    # Headers
-    headers = ["SKU", "Ürün Adı", "Açıklama", "Birim", "Birim Fiyat", "KDV Oranı (%)"]
+    # Headers with image URL
+    headers = ["SKU", "Ürün/Hizmet Adı", "Açıklama", "Birim", "Birim Fiyat", "KDV Oranı (%)", "Görsel URL"]
     header_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
     header_font = Font(color="FFFFFF", bold=True)
     thin_border = Border(
@@ -1173,12 +1180,12 @@ async def download_excel_template():
         cell.border = thin_border
         cell.alignment = Alignment(horizontal='center')
     
-    # Example rows
+    # Example rows with image URLs
     example_data = [
-        ["PRD-001", "Web Tasarım Hizmeti", "Kurumsal web sitesi tasarımı", "adet", 5000, 20],
-        ["PRD-002", "Logo Tasarım", "Profesyonel logo tasarımı", "adet", 1500, 20],
-        ["PRD-003", "SEO Danışmanlık", "Aylık SEO optimizasyon hizmeti", "ay", 2000, 20],
-        ["PRD-004", "Sosyal Medya Yönetimi", "Haftalık içerik üretimi ve yönetim", "ay", 3000, 20],
+        ["PRD-001", "Web Tasarım Hizmeti", "Kurumsal web sitesi tasarımı", "adet", 5000, 20, "https://example.com/images/web-design.jpg"],
+        ["PRD-002", "Logo Tasarım", "Profesyonel logo tasarımı", "adet", 1500, 20, ""],
+        ["PRD-003", "SEO Danışmanlık", "Aylık SEO optimizasyon hizmeti", "ay", 2000, 20, ""],
+        ["PRD-004", "Sosyal Medya Yönetimi", "Haftalık içerik üretimi ve yönetim", "ay", 3000, 20, "https://example.com/images/social.png"],
     ]
     
     for row_idx, row_data in enumerate(example_data, 2):
@@ -1195,30 +1202,33 @@ async def download_excel_template():
     ws.column_dimensions['D'].width = 10
     ws.column_dimensions['E'].width = 12
     ws.column_dimensions['F'].width = 15
+    ws.column_dimensions['G'].width = 40
     
     # Add instructions sheet
     ws2 = wb.create_sheet("Açıklamalar")
     instructions = [
-        ["TeklifMaster - Ürün İçe Aktarma Şablonu"],
+        ["TeklifMaster - Ürün/Hizmet İçe Aktarma Şablonu"],
         [""],
         ["Kullanım Talimatları:"],
         ["1. 'Ürünler' sayfasındaki örnek verileri silin ve kendi ürünlerinizi girin"],
         ["2. SKU (Stok Kodu) alanı opsiyoneldir, ancak güncelleme için benzersiz olmalıdır"],
-        ["3. Ürün Adı zorunludur"],
+        ["3. Ürün/Hizmet Adı zorunludur"],
         ["4. Birim seçenekleri: adet, m, m2, kg, lt, saat, gun, ay, paket"],
         ["5. KDV Oranı: 0, 1, 10, 20 değerlerinden birini kullanın"],
+        ["6. Görsel URL: Ürün/hizmet görselinin internet adresi (opsiyonel)"],
         [""],
         ["Önemli Notlar:"],
         ["- Aynı SKU ile kayıtlı ürün varsa, bilgiler güncellenir"],
         ["- Yeni SKU veya SKU boş ise yeni ürün oluşturulur"],
         ["- İlk satır (başlık) otomatik olarak atlanır"],
+        ["- Görsel URL'si geçerli bir resim adresi olmalıdır (jpg, png, webp)"],
     ]
     
     for row_idx, row in enumerate(instructions, 1):
         cell = ws2.cell(row=row_idx, column=1, value=row[0] if row else "")
         if row_idx == 1:
             cell.font = Font(bold=True, size=14)
-        elif row_idx == 3 or row_idx == 10:
+        elif row_idx == 3 or row_idx == 11:
             cell.font = Font(bold=True)
     
     ws2.column_dimensions['A'].width = 70
@@ -1230,7 +1240,7 @@ async def download_excel_template():
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=quotemaster_urun_sablonu.xlsx"}
+        headers={"Content-Disposition": "attachment; filename=teklifmaster_urun_sablonu.xlsx"}
     )
 
 # ============== BANK ACCOUNT ENDPOINTS ==============

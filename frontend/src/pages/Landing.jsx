@@ -84,8 +84,8 @@ const Landing = () => {
   const features = [
     {
       icon: Package,
-      title: 'Ürün Kataloğu',
-      description: 'Ürünlerinizi kolayca yönetin, fiyatlandırın ve kategorize edin.'
+      title: 'Ürün / Hizmet Kataloğu',
+      description: 'Ürün ve hizmetlerinizi kolayca yönetin, fiyatlandırın ve kategorize edin.'
     },
     {
       icon: Users,
