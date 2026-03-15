@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../lib/api';
 import { Button } from '../components/ui/button';
@@ -7,12 +7,51 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Textarea } from '../components/ui/textarea';
 import { toast } from 'sonner';
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, Save, Image } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, Save, Image, FileText, Check } from 'lucide-react';
+
+const PDF_TEMPLATES = [
+  {
+    id: 'classic',
+    name: 'Klasik',
+    description: 'Minimalist ve kurumsal',
+    primary: '#0F172A',
+    accent: '#F97316',
+  },
+  {
+    id: 'modern',
+    name: 'Modern',
+    description: 'Canlı ve dinamik',
+    primary: '#7C3AED',
+    accent: '#10B981',
+  },
+  {
+    id: 'professional',
+    name: 'Profesyonel',
+    description: 'Ciddi ve resmi',
+    primary: '#1F2937',
+    accent: '#1F2937',
+  },
+  {
+    id: 'elegant',
+    name: 'Zarif',
+    description: 'Sıcak ve şık',
+    primary: '#78350F',
+    accent: '#B45309',
+  },
+  {
+    id: 'ocean',
+    name: 'Okyanus',
+    description: 'Ferah ve güvenilir',
+    primary: '#0369A1',
+    accent: '#0891B2',
+  },
+];
 
 const Settings = () => {
   const { user, updateUser } = useAuth();
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -21,6 +60,8 @@ const Settings = () => {
     company_phone: user?.company_phone || '',
     company_tax_number: user?.company_tax_number || '',
   });
+
+  const [selectedTemplate, setSelectedTemplate] = useState(user?.pdf_template || 'classic');
 
   const handleSave = async () => {
     if (!formData.company_name) {
@@ -64,12 +105,97 @@ const Settings = () => {
     }
   };
 
+  const handleTemplateSelect = async (templateId) => {
+    setSelectedTemplate(templateId);
+    setSavingTemplate(true);
+    try {
+      const response = await authAPI.updateProfile({ pdf_template: templateId });
+      updateUser(response.data);
+      toast.success('PDF şablonu güncellendi');
+    } catch (error) {
+      toast.error('Şablon kaydedilemedi');
+      setSelectedTemplate(user?.pdf_template || 'classic');
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in" data-testid="settings-page">
+    <div className="max-w-4xl mx-auto space-y-6 animate-fade-in" data-testid="settings-page">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Ayarlar</h1>
-        <p className="text-slate-500">Şirket bilgilerinizi ve logonuzu yönetin</p>
+        <p className="text-slate-500">Şirket bilgilerinizi ve PDF şablonunuzu yönetin</p>
       </div>
+
+      {/* PDF Template Selection */}
+      <Card data-testid="pdf-template-card">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <FileText className="w-5 h-5" />
+            PDF Şablonu
+          </CardTitle>
+          <CardDescription>
+            Teklif PDF'leriniz için varsayılan tasarımı seçin
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+            {PDF_TEMPLATES.map((template) => (
+              <div
+                key={template.id}
+                onClick={() => handleTemplateSelect(template.id)}
+                className={`relative cursor-pointer rounded-lg border-2 p-4 transition-all hover:shadow-md ${
+                  selectedTemplate === template.id
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+                data-testid={`template-${template.id}`}
+              >
+                {selectedTemplate === template.id && (
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                )}
+                
+                {/* Template Preview */}
+                <div className="mb-3 rounded-md overflow-hidden border border-slate-200 bg-white">
+                  <div 
+                    className="h-2" 
+                    style={{ backgroundColor: template.accent }}
+                  />
+                  <div className="p-2">
+                    <div 
+                      className="h-2 w-16 rounded mb-1" 
+                      style={{ backgroundColor: template.primary }}
+                    />
+                    <div className="h-1 w-12 bg-slate-200 rounded mb-2" />
+                    <div className="space-y-1">
+                      <div className="h-1 w-full bg-slate-100 rounded" />
+                      <div className="h-1 w-full bg-slate-100 rounded" />
+                      <div className="h-1 w-3/4 bg-slate-100 rounded" />
+                    </div>
+                    <div className="mt-2 flex justify-end">
+                      <div 
+                        className="h-2 w-8 rounded" 
+                        style={{ backgroundColor: template.accent }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                
+                <h3 className="font-semibold text-sm">{template.name}</h3>
+                <p className="text-xs text-slate-500">{template.description}</p>
+              </div>
+            ))}
+          </div>
+          {savingTemplate && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-orange-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Şablon kaydediliyor...
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Logo Section */}
       <Card data-testid="logo-card">
