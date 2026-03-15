@@ -18,6 +18,7 @@ import BankAccounts from './pages/BankAccounts';
 import Settings from './pages/Settings';
 import Subscription from './pages/Subscription';
 import Reports from './pages/Reports';
+import Terms from './pages/Terms';
 import './App.css';
 
 // Protected Route wrapper
@@ -69,6 +70,7 @@ function AppRoutes() {
     <Routes>
       {/* Landing page - public */}
       <Route path="/" element={<Landing />} />
+      <Route path="/terms" element={<Terms />} />
       
       {/* Public routes */}
       <Route

@@ -649,7 +649,7 @@ async def create_iyzico_checkout_form(user: dict, callback_url: str) -> dict:
             'name': 'TeklifMaster Aylık Abonelik',
             'category1': 'Yazılım',
             'itemType': 'VIRTUAL',
-            'price': '200.00'
+            'price': '299.00'
         }
     ]
     
@@ -657,7 +657,7 @@ async def create_iyzico_checkout_form(user: dict, callback_url: str) -> dict:
         'locale': 'tr',
         'conversationId': str(uuid.uuid4()),
         'price': '100.00',
-        'paidPrice': '200.00',
+        'paidPrice': '299.00',
         'currency': 'TRY',
         'basketId': f'BASKET-{user["id"][:8]}',
         'paymentGroup': 'SUBSCRIPTION',
@@ -844,29 +844,36 @@ async def forgot_password(request: PasswordResetRequest):
         "created_at": datetime.now(timezone.utc).isoformat()
     })
     
-    # Send email if Resend is configured
-    if RESEND_AVAILABLE and RESEND_API_KEY and RESEND_API_KEY != 're_your_api_key_here':
-        frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
-        reset_link = f"{frontend_url}/reset-password?token={reset_token}"
-        
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background: #0F172A; padding: 20px; text-align: center;">
-                <h1 style="color: #F97316; margin: 0;">TeklifMaster</h1>
-            </div>
-            <div style="padding: 30px; background: #f8fafc;">
-                <h2 style="color: #1e293b;">Şifre Sıfırlama</h2>
-                <p style="color: #475569;">Merhaba,</p>
-                <p style="color: #475569;">Şifrenizi sıfırlamak için aşağıdaki butona tıklayın:</p>
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{reset_link}" style="background: #F97316; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Şifremi Sıfırla</a>
-                </div>
-                <p style="color: #64748b; font-size: 14px;">Bu link 1 saat geçerlidir.</p>
-                <p style="color: #64748b; font-size: 14px;">Bu isteği siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
-            </div>
+    frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
+    reset_link = f"{frontend_url}/reset-password?token={reset_token}"
+    
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #0F172A; padding: 20px; text-align: center;">
+            <h1 style="color: #F97316; margin: 0;">TeklifMaster</h1>
         </div>
-        """
-        
+        <div style="padding: 30px; background: #f8fafc;">
+            <h2 style="color: #1e293b;">Şifre Sıfırlama</h2>
+            <p style="color: #475569;">Merhaba,</p>
+            <p style="color: #475569;">Şifrenizi sıfırlamak için aşağıdaki butona tıklayın:</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{reset_link}" style="background: #F97316; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Şifremi Sıfırla</a>
+            </div>
+            <p style="color: #64748b; font-size: 14px;">Bu link 1 saat geçerlidir.</p>
+            <p style="color: #64748b; font-size: 14px;">Bu isteği siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
+        </div>
+    </div>
+    """
+    
+    # Try SMTP first (Hostinger)
+    if SMTP_PASSWORD:
+        try:
+            send_smtp_email(request.email, "TeklifMaster - Şifre Sıfırlama", html_content)
+            logging.info(f"Password reset email sent via SMTP to {request.email}")
+        except Exception as e:
+            logging.error(f"Failed to send password reset email via SMTP: {e}")
+    # Fallback to Resend if configured
+    elif RESEND_AVAILABLE and RESEND_API_KEY and RESEND_API_KEY != 're_your_api_key_here':
         try:
             params = {
                 "from": SENDER_EMAIL,
@@ -876,7 +883,7 @@ async def forgot_password(request: PasswordResetRequest):
             }
             await asyncio.to_thread(resend.Emails.send, params)
         except Exception as e:
-            logging.error(f"Failed to send password reset email: {e}")
+            logging.error(f"Failed to send password reset email via Resend: {e}")
     
     return {"message": "Şifre sıfırlama linki e-posta adresinize gönderildi"}
 
@@ -1538,6 +1545,17 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     """Generate PDF with specified template and settings"""
     template = PDF_TEMPLATES.get(template_id, PDF_TEMPLATES["classic"])
     
+    # Register Turkish-compatible fonts
+    try:
+        pdfmetrics.registerFont(TTFont('Liberation', '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf'))
+        pdfmetrics.registerFont(TTFont('Liberation-Bold', '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf'))
+        default_font = 'Liberation'
+        bold_font = 'Liberation-Bold'
+    except Exception as e:
+        logging.warning(f"Could not load Liberation font: {e}, falling back to Helvetica")
+        default_font = 'Helvetica'
+        bold_font = 'Helvetica-Bold'
+    
     # PDF Settings defaults
     if pdf_settings is None:
         pdf_settings = {}
@@ -1557,14 +1575,15 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     pdf_buffer = BytesIO()
     doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm)
     
-    # Styles based on template
+    # Styles based on template with Turkish font
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name='Title2', fontSize=18, fontName='Helvetica-Bold', textColor=colors.HexColor(template['primary']), spaceAfter=10))
-    styles.add(ParagraphStyle(name='Subtitle', fontSize=10, fontName='Helvetica', textColor=colors.HexColor(template['muted'])))
-    styles.add(ParagraphStyle(name='QuoteNumber', fontSize=14, fontName='Helvetica-Bold', textColor=colors.HexColor(template['accent']), alignment=2))
-    styles.add(ParagraphStyle(name='SectionTitle', fontSize=11, fontName='Helvetica-Bold', textColor=colors.HexColor(template['primary']), spaceBefore=20, spaceAfter=10))
-    styles.add(ParagraphStyle(name='Normal2', fontSize=9, fontName='Helvetica', textColor=colors.HexColor(template['text'])))
-    styles.add(ParagraphStyle(name='Footer', fontSize=8, fontName='Helvetica', textColor=colors.HexColor(template['muted']), alignment=1))
+    styles.add(ParagraphStyle(name='Title2', fontSize=18, fontName=bold_font, textColor=colors.HexColor(template['primary']), spaceAfter=10))
+    styles.add(ParagraphStyle(name='Subtitle', fontSize=10, fontName=default_font, textColor=colors.HexColor(template['muted'])))
+    styles.add(ParagraphStyle(name='QuoteNumber', fontSize=14, fontName=bold_font, textColor=colors.HexColor(template['accent']), alignment=2))
+    styles.add(ParagraphStyle(name='SectionTitle', fontSize=11, fontName=bold_font, textColor=colors.HexColor(template['primary']), spaceBefore=20, spaceAfter=10))
+    styles.add(ParagraphStyle(name='Normal2', fontSize=9, fontName=default_font, textColor=colors.HexColor(template['text'])))
+    styles.add(ParagraphStyle(name='Footer', fontSize=8, fontName=default_font, textColor=colors.HexColor(template['muted']), alignment=1))
+    styles.add(ParagraphStyle(name='FooterLink', fontSize=8, fontName=default_font, textColor=colors.HexColor('#F97316'), alignment=1))
     
     elements = []
     
@@ -1584,7 +1603,7 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
         except Exception as e:
             logging.error(f"Failed to load logo: {e}")
     
-    header_left_content.append(Paragraph(f"<b>{user.get('company_name', 'Sirket')}</b>", styles['Title2']))
+    header_left_content.append(Paragraph(f"<b>{user.get('company_name', 'Şirket')}</b>", styles['Title2']))
     
     header_data = [
         [
@@ -1593,7 +1612,7 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
         ],
         [
             Paragraph(f"{user.get('company_address', '') or ''}<br/>{user.get('company_phone', '') or ''}<br/>{'VKN: ' + user.get('company_tax_number') if user.get('company_tax_number') else ''}", styles['Subtitle']),
-            Paragraph(f"<b>Tarih:</b> {created_date}<br/><b>Gecerlilik:</b> {validity_date}", styles['Subtitle'])
+            Paragraph(f"<b>Tarih:</b> {created_date}<br/><b>Geçerlilik:</b> {validity_date}", styles['Subtitle'])
         ]
     ]
     
@@ -1608,7 +1627,7 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     elements.append(Spacer(1, 20))
     
     # Customer Section
-    elements.append(Paragraph("MUSTERI BILGILERI", styles['SectionTitle']))
+    elements.append(Paragraph("MÜŞTERİ BİLGİLERİ", styles['SectionTitle']))
     customer_info = f"<b>{quote['customer_name']}</b><br/>"
     if quote.get('customer_tax_number'):
         customer_info += f"VKN: {quote['customer_tax_number']}<br/>"
@@ -1674,7 +1693,7 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     
     # Add general discount if exists
     if quote.get('general_discount_type') and quote.get('general_discount_amount', 0) > 0:
-        discount_label = f"Genel Iskonto ({quote['general_discount_value']}{'%' if quote['general_discount_type'] == 'percent' else ' TL'}):"
+        discount_label = f"Genel İskonto ({quote['general_discount_value']}{'%' if quote['general_discount_type'] == 'percent' else ' TL'}):"
         totals_data.append([discount_label, f"-{format_currency_pdf(quote['general_discount_amount'])}"])
     
     totals_data.append(['GENEL TOPLAM:', format_currency_pdf(quote['total'])])
@@ -1700,7 +1719,7 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     # Bank Accounts Section
     if quote.get("bank_accounts") and len(quote["bank_accounts"]) > 0:
         elements.append(Spacer(1, 20))
-        elements.append(Paragraph("ODEME BILGILERI", styles['SectionTitle']))
+        elements.append(Paragraph("ÖDEME BİLGİLERİ", styles['SectionTitle']))
         
         for account in quote["bank_accounts"]:
             currency_symbol = "₺" if account.get('currency', 'TRY') == 'TRY' else account.get('currency', '')
@@ -1735,9 +1754,10 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
         ]))
         elements.append(notes_table)
     
-    # Footer
+    # Footer with link
     elements.append(Spacer(1, 30))
-    elements.append(Paragraph(f"Bu teklif {validity_date} tarihine kadar gecerlidir. | TeklifMaster ile olusturuldu.", styles['Footer']))
+    elements.append(Paragraph(f"Bu teklif {validity_date} tarihine kadar geçerlidir.", styles['Footer']))
+    elements.append(Paragraph('<a href="https://teklifmaster.com" color="#F97316">teklifmaster.com</a> ile oluşturuldu.', styles['FooterLink']))
     
     # Build PDF
     doc.build(elements)
@@ -1980,7 +2000,7 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
             'name': 'TeklifMaster Aylık Abonelik',
             'category1': 'Yazılım',
             'itemType': 'VIRTUAL',
-            'price': '200.00'
+            'price': '299.00'
         }
     ]
     
@@ -1990,7 +2010,7 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
         'locale': 'tr',
         'conversationId': conversation_id,
         'price': '100.00',
-        'paidPrice': '200.00',
+        'paidPrice': '299.00',
         'currency': 'TRY',
         'installment': '1',
         'basketId': f'SUB-{current_user["id"][:8]}',

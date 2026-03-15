@@ -32,8 +32,10 @@ const Subscription = () => {
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [applyingCoupon, setApplyingCoupon] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState('monthly'); // 'monthly' or 'yearly'
 
-  const BASE_PRICE = 200;
+  const MONTHLY_PRICE = 299;
+  const YEARLY_PRICE = 2990;
 
   const [cardData, setCardData] = useState({
     card_holder_name: '',
@@ -81,11 +83,12 @@ const Subscription = () => {
   };
 
   const calculateFinalPrice = () => {
-    if (!appliedCoupon) return BASE_PRICE;
+    const basePrice = selectedPlan === 'yearly' ? YEARLY_PRICE : MONTHLY_PRICE;
+    if (!appliedCoupon) return basePrice;
     if (appliedCoupon.discount_type === 'percent') {
-      return BASE_PRICE - (BASE_PRICE * appliedCoupon.discount_value / 100);
+      return basePrice - (basePrice * appliedCoupon.discount_value / 100);
     }
-    return Math.max(0, BASE_PRICE - appliedCoupon.discount_value);
+    return Math.max(0, basePrice - appliedCoupon.discount_value);
   };
 
   const handleApplyCoupon = async () => {
@@ -291,7 +294,7 @@ const Subscription = () => {
               <CardDescription>Tüm özellikler sınırsız</CardDescription>
             </div>
             <div className="text-right">
-              <p className="text-3xl font-bold text-orange-500">₺200</p>
+              <p className="text-3xl font-bold text-orange-500">₺299</p>
               <p className="text-sm text-slate-500">/ay</p>
             </div>
           </div>
@@ -354,12 +357,42 @@ const Subscription = () => {
             <DialogTitle>Ödeme Bilgileri</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Plan Selection */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                onClick={() => setSelectedPlan('monthly')}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  selectedPlan === 'monthly' 
+                    ? 'border-orange-500 bg-orange-50' 
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <p className="font-semibold">Aylık Plan</p>
+                <p className="text-2xl font-bold text-orange-500">₺299<span className="text-sm text-slate-500 font-normal">/ay</span></p>
+              </button>
+              <button
+                onClick={() => setSelectedPlan('yearly')}
+                className={`p-4 rounded-lg border-2 text-left transition-all relative ${
+                  selectedPlan === 'yearly' 
+                    ? 'border-orange-500 bg-orange-50' 
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <span className="absolute -top-2 right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded">2 AY BEDAVA</span>
+                <p className="font-semibold">Yıllık Plan</p>
+                <p className="text-2xl font-bold text-orange-500">₺2990<span className="text-sm text-slate-500 font-normal">/yıl</span></p>
+                <p className="text-xs text-green-600">₺249/ay (₺598 tasarruf)</p>
+              </button>
+            </div>
+
             <div className="p-4 bg-orange-50 rounded-lg mb-4">
               <div className="flex justify-between items-center">
-                <span className="font-medium">Pro Plan - Aylık</span>
+                <span className="font-medium">{selectedPlan === 'yearly' ? 'Yıllık Plan' : 'Aylık Plan'}</span>
                 <div className="text-right">
                   {appliedCoupon && (
-                    <span className="text-sm text-slate-400 line-through mr-2">₺{BASE_PRICE}</span>
+                    <span className="text-sm text-slate-400 line-through mr-2">
+                      ₺{selectedPlan === 'yearly' ? YEARLY_PRICE : MONTHLY_PRICE}
+                    </span>
                   )}
                   <span className="text-xl font-bold text-orange-500">₺{calculateFinalPrice()}</span>
                 </div>

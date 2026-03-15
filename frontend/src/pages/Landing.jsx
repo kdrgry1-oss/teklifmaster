@@ -29,6 +29,7 @@ const Landing = () => {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -54,6 +55,11 @@ const Landing = () => {
     e.preventDefault();
     if (!registerEmail || !registerPassword || !companyName) {
       toast.error('Lütfen tüm alanları doldurun');
+      return;
+    }
+
+    if (!termsAccepted) {
+      toast.error('Kullanıcı sözleşmesini kabul etmelisiniz');
       return;
     }
 
@@ -231,7 +237,7 @@ const Landing = () => {
 
       {/* Pricing Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white" id="pricing">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
               Basit ve Şeffaf Fiyatlandırma
@@ -241,45 +247,91 @@ const Landing = () => {
             </p>
           </div>
           
-          <Card className="border-2 border-orange-500 shadow-xl overflow-hidden">
-            <div className="bg-orange-500 text-white text-center py-2 text-sm font-medium">
-              7 GÜN ÜCRETSİZ DENEME
-            </div>
-            <CardContent className="p-8">
-              <div className="text-center mb-8">
-                <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-5xl font-bold text-slate-900">₺200</span>
-                  <span className="text-slate-500">/ay</span>
-                </div>
-                <p className="text-slate-600 mt-2">KDV dahil</p>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Monthly Plan */}
+            <Card className="border-2 border-slate-200 shadow-lg overflow-hidden">
+              <div className="bg-slate-100 text-slate-700 text-center py-2 text-sm font-medium">
+                AYLIK PLAN
               </div>
-              
-              <div className="grid sm:grid-cols-2 gap-4 mb-8">
-                {pricingFeatures.map((feature, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Check className="w-3 h-3 text-green-600" />
-                    </div>
-                    <span className="text-slate-700">{feature}</span>
+              <CardContent className="p-8">
+                <div className="text-center mb-6">
+                  <div className="flex items-baseline justify-center gap-2">
+                    <span className="text-4xl font-bold text-slate-900">₺299</span>
+                    <span className="text-slate-500">/ay</span>
                   </div>
-                ))}
+                  <p className="text-slate-600 mt-2">KDV dahil</p>
+                </div>
+                
+                <div className="space-y-3 mb-6">
+                  {pricingFeatures.slice(0, 4).map((feature, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3 h-3 text-green-600" />
+                      </div>
+                      <span className="text-slate-700 text-sm">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <Button 
+                  size="lg"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => { setActiveTab('register'); setShowAuthModal(true); }}
+                >
+                  Hemen Başla
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Yearly Plan */}
+            <Card className="border-2 border-orange-500 shadow-xl overflow-hidden relative">
+              <div className="absolute top-4 right-4 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
+                2 AY BEDAVA
               </div>
-              
-              <Button 
-                size="lg"
-                className="w-full bg-orange-500 hover:bg-orange-600 text-lg"
-                onClick={() => { setActiveTab('register'); setShowAuthModal(true); }}
-                data-testid="pricing-cta-btn"
-              >
-                Hemen Başla
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-              
-              <p className="text-center text-sm text-slate-500 mt-4">
-                Kredi kartı gerekmez. İstediğiniz zaman iptal edin.
-              </p>
-            </CardContent>
-          </Card>
+              <div className="bg-orange-500 text-white text-center py-2 text-sm font-medium">
+                YILLIK PLAN - EN AVANTAJLI
+              </div>
+              <CardContent className="p-8">
+                <div className="text-center mb-6">
+                  <div className="flex items-baseline justify-center gap-2">
+                    <span className="text-4xl font-bold text-slate-900">₺2990</span>
+                    <span className="text-slate-500">/yıl</span>
+                  </div>
+                  <p className="text-slate-600 mt-1">
+                    <span className="line-through text-slate-400">₺3588</span>
+                    <span className="text-green-600 font-medium ml-2">₺598 tasarruf!</span>
+                  </p>
+                  <p className="text-orange-600 text-sm mt-1">Aylık sadece ₺249</p>
+                </div>
+                
+                <div className="space-y-3 mb-6">
+                  {pricingFeatures.map((feature, index) => (
+                    <div key={index} className="flex items-center gap-3">
+                      <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Check className="w-3 h-3 text-green-600" />
+                      </div>
+                      <span className="text-slate-700 text-sm">{feature}</span>
+                    </div>
+                  ))}
+                </div>
+                
+                <Button 
+                  size="lg"
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-lg"
+                  onClick={() => { setActiveTab('register'); setShowAuthModal(true); }}
+                  data-testid="pricing-cta-btn"
+                >
+                  7 Gün Ücretsiz Dene
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                
+                <p className="text-center text-sm text-slate-500 mt-4">
+                  Kredi kartı gerekmez. İstediğiniz zaman iptal edin.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
 
@@ -405,6 +457,15 @@ const Landing = () => {
                     'Giriş Yap'
                   )}
                 </Button>
+                <div className="text-center">
+                  <a 
+                    href="/forgot-password" 
+                    className="text-sm text-orange-500 hover:underline"
+                    data-testid="modal-forgot-password-link"
+                  >
+                    Şifremi Unuttum
+                  </a>
+                </div>
               </form>
             </TabsContent>
 
@@ -455,10 +516,26 @@ const Landing = () => {
                     />
                   </div>
                 </div>
+                <div className="flex items-start gap-2">
+                  <input
+                    type="checkbox"
+                    id="terms-checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1"
+                    data-testid="terms-checkbox"
+                  />
+                  <label htmlFor="terms-checkbox" className="text-xs text-slate-600">
+                    <a href="/terms" target="_blank" className="text-orange-500 hover:underline">
+                      Kullanıcı Sözleşmesi
+                    </a>'ni okudum ve kabul ediyorum. 
+                    Oluşturulan tekliflerde "teklifmaster.com" ibaresinin yer alacağını onaylıyorum.
+                  </label>
+                </div>
                 <Button
                   type="submit"
                   className="w-full bg-orange-500 hover:bg-orange-600"
-                  disabled={loading}
+                  disabled={loading || !termsAccepted}
                   data-testid="modal-register-submit"
                 >
                   {loading ? (
@@ -470,13 +547,6 @@ const Landing = () => {
                     '7 Gün Ücretsiz Dene'
                   )}
                 </Button>
-                <p className="text-xs text-center text-slate-500">
-                  Kayıt olarak{' '}
-                  <a href="#" className="text-orange-500 hover:underline">
-                    Kullanım Koşullarını
-                  </a>{' '}
-                  kabul etmiş olursunuz.
-                </p>
               </form>
             </TabsContent>
           </Tabs>
