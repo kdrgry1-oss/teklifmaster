@@ -374,7 +374,8 @@ const Products = () => {
                         {product.unit} • %{product.vat_rate} KDV
                       </div>
                       <div className="font-semibold font-mono text-slate-900">
-                        {formatCurrency(product.unit_price)}
+                        {CURRENCIES.find(c => c.value === product.currency)?.symbol || '₺'}
+                        {product.unit_price.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </div>
                     </div>
                   </div>
