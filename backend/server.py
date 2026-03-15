@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, status, Query, BackgroundTasks, Request
-from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, HTMLResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -61,6 +61,11 @@ JWT_EXPIRATION_HOURS = 24
 # Encryption key for sensitive data (generate if not exists)
 ENCRYPTION_KEY = os.environ.get('ENCRYPTION_KEY', Fernet.generate_key().decode())
 fernet = Fernet(ENCRYPTION_KEY.encode() if isinstance(ENCRYPTION_KEY, str) else ENCRYPTION_KEY)
+
+# Iyzico Settings
+IYZICO_API_KEY = os.environ.get('IYZICO_API_KEY', '')
+IYZICO_SECRET_KEY = os.environ.get('IYZICO_SECRET_KEY', '')
+IYZICO_BASE_URL = os.environ.get('IYZICO_BASE_URL', 'api.iyzipay.com')
 
 # ============== SECURITY UTILITIES ==============
 
@@ -567,6 +572,90 @@ class SubscriptionCreate(BaseModel):
     expire_month: str
     expire_year: str
     cvc: str
+
+# Iyzico Checkout Form Request
+class IyzicoCheckoutRequest(BaseModel):
+    callback_url: str
+
+# ============== IYZICO HELPERS ==============
+
+import iyzipay
+
+def get_iyzico_options():
+    """Get iyzico API options"""
+    options = {
+        'api_key': IYZICO_API_KEY,
+        'secret_key': IYZICO_SECRET_KEY,
+        'base_url': IYZICO_BASE_URL
+    }
+    return options
+
+async def create_iyzico_checkout_form(user: dict, callback_url: str) -> dict:
+    """Initialize Iyzico checkout form for subscription"""
+    options = get_iyzico_options()
+    
+    buyer = {
+        'id': user['id'],
+        'name': user.get('company_name', 'Müşteri').split()[0] if user.get('company_name') else 'Müşteri',
+        'surname': user.get('company_name', 'Müşteri').split()[-1] if user.get('company_name') and len(user.get('company_name', '').split()) > 1 else 'Müşteri',
+        'gsmNumber': user.get('company_phone', '+905350000000') or '+905350000000',
+        'email': user['email'],
+        'identityNumber': '11111111111',
+        'registrationAddress': user.get('company_address', 'Türkiye') or 'Türkiye',
+        'ip': '85.34.78.112',
+        'city': 'Istanbul',
+        'country': 'Turkey'
+    }
+    
+    address = {
+        'contactName': user.get('company_name', 'Müşteri'),
+        'city': 'Istanbul',
+        'country': 'Turkey',
+        'address': user.get('company_address', 'Türkiye') or 'Türkiye'
+    }
+    
+    basket_items = [
+        {
+            'id': 'PRO_MONTHLY',
+            'name': 'QuoteMaster Pro Aylık Abonelik',
+            'category1': 'Yazılım',
+            'itemType': 'VIRTUAL',
+            'price': '100.00'
+        }
+    ]
+    
+    request = {
+        'locale': 'tr',
+        'conversationId': str(uuid.uuid4()),
+        'price': '100.00',
+        'paidPrice': '100.00',
+        'currency': 'TRY',
+        'basketId': f'BASKET-{user["id"][:8]}',
+        'paymentGroup': 'SUBSCRIPTION',
+        'callbackUrl': callback_url,
+        'buyer': buyer,
+        'shippingAddress': address,
+        'billingAddress': address,
+        'basketItems': basket_items
+    }
+    
+    checkout_form_initialize = iyzipay.CheckoutFormInitialize().create(request, options)
+    result = checkout_form_initialize.read().decode('utf-8')
+    return json.loads(result)
+
+async def retrieve_iyzico_checkout_result(token: str) -> dict:
+    """Retrieve checkout form payment result"""
+    options = get_iyzico_options()
+    
+    request = {
+        'locale': 'tr',
+        'conversationId': str(uuid.uuid4()),
+        'token': token
+    }
+    
+    checkout_form_result = iyzipay.CheckoutForm().retrieve(request, options)
+    result = checkout_form_result.read().decode('utf-8')
+    return json.loads(result)
 
 # ============== AUTH HELPERS ==============
 
@@ -1815,33 +1904,300 @@ async def get_subscription_status(current_user: dict = Depends(get_auth_user)):
 
 @api_router.post("/subscription/subscribe")
 async def create_subscription(card_data: SubscriptionCreate, current_user: dict = Depends(get_auth_user)):
-    # Mock Iyzico subscription - In production, integrate with real Iyzico API
-    now = datetime.now(timezone.utc)
-    next_payment = now + timedelta(days=30)
+    """Initialize 3D Secure payment for subscription (100 TL monthly)"""
+    options = get_iyzico_options()
     
-    subscription_doc = {
-        "id": str(uuid.uuid4()),
-        "user_id": current_user["id"],
-        "iyzico_subscription_id": f"MOCK-{str(uuid.uuid4())[:8]}",
-        "card_last_four": card_data.card_number[-4:],
-        "card_holder": card_data.card_holder_name,
-        "status": "active",
-        "plan_name": "Pro",
-        "amount": 100,
-        "currency": "TRY",
-        "period": "monthly",
-        "next_payment_date": next_payment.isoformat(),
-        "created_at": now.isoformat()
+    if not IYZICO_API_KEY or not IYZICO_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Ödeme sistemi yapılandırılmamış")
+    
+    # Use the frontend URL for callback
+    frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+    callback_url = f"{frontend_url}/subscription/callback"
+    
+    # Prepare 3D Secure payment request
+    payment_card = {
+        'cardHolderName': card_data.card_holder_name,
+        'cardNumber': card_data.card_number.replace(' ', ''),
+        'expireMonth': card_data.expire_month,
+        'expireYear': card_data.expire_year,
+        'cvc': card_data.cvc,
+        'registerCard': '0'
     }
     
-    await db.subscriptions.insert_one(subscription_doc)
-    await db.users.update_one(
-        {"id": current_user["id"]},
-        {"$set": {"subscription_status": "active"}}
-    )
+    buyer = {
+        'id': current_user['id'],
+        'name': current_user.get('company_name', 'Müşteri').split()[0] if current_user.get('company_name') else 'Müşteri',
+        'surname': current_user.get('company_name', 'Müşteri').split()[-1] if current_user.get('company_name') and len(current_user.get('company_name', '').split()) > 1 else 'Müşteri',
+        'gsmNumber': current_user.get('company_phone', '+905350000000') or '+905350000000',
+        'email': current_user['email'],
+        'identityNumber': '11111111111',
+        'registrationAddress': current_user.get('company_address', 'Türkiye') or 'Türkiye',
+        'ip': '85.34.78.112',
+        'city': 'Istanbul',
+        'country': 'Turkey'
+    }
     
-    del subscription_doc["_id"]
-    return {"message": "Abonelik başarıyla oluşturuldu", "subscription": subscription_doc}
+    address = {
+        'contactName': current_user.get('company_name', 'Müşteri'),
+        'city': 'Istanbul',
+        'country': 'Turkey',
+        'address': current_user.get('company_address', 'Türkiye') or 'Türkiye'
+    }
+    
+    basket_items = [
+        {
+            'id': 'PRO_MONTHLY',
+            'name': 'QuoteMaster Pro Aylık Abonelik',
+            'category1': 'Yazılım',
+            'itemType': 'VIRTUAL',
+            'price': '100.00'
+        }
+    ]
+    
+    conversation_id = str(uuid.uuid4())
+    
+    request = {
+        'locale': 'tr',
+        'conversationId': conversation_id,
+        'price': '100.00',
+        'paidPrice': '100.00',
+        'currency': 'TRY',
+        'installment': '1',
+        'basketId': f'SUB-{current_user["id"][:8]}',
+        'paymentChannel': 'WEB',
+        'paymentGroup': 'SUBSCRIPTION',
+        'paymentCard': payment_card,
+        'buyer': buyer,
+        'shippingAddress': address,
+        'billingAddress': address,
+        'basketItems': basket_items,
+        'callbackUrl': callback_url
+    }
+    
+    try:
+        # Initialize 3D Secure payment
+        threeds_initialize = iyzipay.ThreedsInitialize().create(request, options)
+        result = json.loads(threeds_initialize.read().decode('utf-8'))
+        
+        logger.info(f"Iyzico 3DS init result: {result.get('status')} - {result.get('errorMessage', 'OK')}")
+        
+        if result.get('status') != 'success':
+            error_msg = result.get('errorMessage', 'Ödeme başlatılamadı')
+            logger.error(f"Iyzico 3DS init failed: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        # Store pending payment session
+        pending_payment = {
+            "id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "conversation_id": conversation_id,
+            "card_last_four": card_data.card_number[-4:],
+            "card_holder": card_data.card_holder_name,
+            "status": "pending_3ds",
+            "amount": 100,
+            "currency": "TRY",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.pending_payments.insert_one(pending_payment)
+        
+        # Return the 3D Secure HTML content
+        return {
+            "status": "3ds_required",
+            "threeds_html_content": result.get('threeDSHtmlContent'),
+            "conversation_id": conversation_id,
+            "message": "3D Secure doğrulama gerekiyor"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Iyzico 3DS init error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Ödeme başlatılamadı: {str(e)}")
+
+@api_router.post("/subscription/callback")
+async def subscription_callback(request: Request):
+    """Handle 3D Secure callback from Iyzico"""
+    try:
+        # Get form data from POST request
+        form_data = await request.form()
+        
+        # The callback includes payment result
+        options = get_iyzico_options()
+        
+        # Retrieve the 3DS payment result
+        retrieve_request = {
+            'locale': 'tr',
+            'conversationId': str(uuid.uuid4()),
+            'paymentId': form_data.get('paymentId')
+        }
+        
+        payment_result = iyzipay.ThreedsPayment().create(retrieve_request, options)
+        result = json.loads(payment_result.read().decode('utf-8'))
+        
+        logger.info(f"Iyzico 3DS callback result: {result.get('status')}")
+        
+        if result.get('status') == 'success':
+            # Find the pending payment
+            conversation_id = result.get('conversationId')
+            pending = await db.pending_payments.find_one({"conversation_id": conversation_id})
+            
+            if pending:
+                user_id = pending["user_id"]
+                now = datetime.now(timezone.utc)
+                next_payment = now + timedelta(days=30)
+                
+                subscription_doc = {
+                    "id": str(uuid.uuid4()),
+                    "user_id": user_id,
+                    "iyzico_payment_id": result.get('paymentId'),
+                    "card_last_four": pending.get("card_last_four", "****"),
+                    "card_holder": pending.get("card_holder"),
+                    "card_type": result.get('cardType', 'UNKNOWN'),
+                    "card_association": result.get('cardAssociation', 'UNKNOWN'),
+                    "status": "active",
+                    "plan_name": "Pro",
+                    "amount": 100,
+                    "currency": "TRY",
+                    "period": "monthly",
+                    "paid_price": float(result.get('paidPrice', 100)),
+                    "next_payment_date": next_payment.isoformat(),
+                    "created_at": now.isoformat()
+                }
+                
+                await db.subscriptions.insert_one(subscription_doc)
+                await db.users.update_one(
+                    {"id": user_id},
+                    {"$set": {"subscription_status": "active"}}
+                )
+                await db.pending_payments.delete_one({"conversation_id": conversation_id})
+                
+                # Redirect to success page
+                frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+                return HTMLResponse(content=f"""
+                    <html>
+                    <head>
+                        <meta http-equiv="refresh" content="0;url={frontend_url}/subscription?status=success">
+                    </head>
+                    <body>
+                        <p>Ödeme başarılı! Yönlendiriliyorsunuz...</p>
+                    </body>
+                    </html>
+                """)
+        
+        # Payment failed
+        frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+        error_msg = result.get('errorMessage', 'Ödeme başarısız')
+        return HTMLResponse(content=f"""
+            <html>
+            <head>
+                <meta http-equiv="refresh" content="0;url={frontend_url}/subscription?status=failed&error={error_msg}">
+            </head>
+            <body>
+                <p>Ödeme başarısız! Yönlendiriliyorsunuz...</p>
+            </body>
+            </html>
+        """)
+        
+    except Exception as e:
+        logger.error(f"Subscription callback error: {str(e)}")
+        frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+        return HTMLResponse(content=f"""
+            <html>
+            <head>
+                <meta http-equiv="refresh" content="0;url={frontend_url}/subscription?status=error">
+            </head>
+            <body>
+                <p>Bir hata oluştu! Yönlendiriliyorsunuz...</p>
+            </body>
+            </html>
+        """)
+
+@api_router.post("/subscription/checkout/initialize")
+async def initialize_checkout(request: IyzicoCheckoutRequest, current_user: dict = Depends(get_auth_user)):
+    """Initialize Iyzico checkout form (alternative to direct card payment)"""
+    if not IYZICO_API_KEY or not IYZICO_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Ödeme sistemi yapılandırılmamış")
+    
+    try:
+        result = await create_iyzico_checkout_form(current_user, request.callback_url)
+        
+        if result.get('status') != 'success':
+            raise HTTPException(status_code=400, detail=result.get('errorMessage', 'Checkout başlatılamadı'))
+        
+        # Store checkout session
+        checkout_session = {
+            "id": str(uuid.uuid4()),
+            "user_id": current_user["id"],
+            "token": result.get('token'),
+            "status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.checkout_sessions.insert_one(checkout_session)
+        
+        return {
+            "status": "success",
+            "token": result.get('token'),
+            "checkout_form_content": result.get('checkoutFormContent'),
+            "payment_page_url": result.get('paymentPageUrl')
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Checkout initialization error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Checkout başlatılamadı: {str(e)}")
+
+@api_router.get("/subscription/checkout/callback")
+async def checkout_callback(token: str):
+    """Handle Iyzico checkout callback"""
+    try:
+        result = await retrieve_iyzico_checkout_result(token)
+        
+        if result.get('status') != 'success' or result.get('paymentStatus') != 'SUCCESS':
+            return {"status": "failed", "message": result.get('errorMessage', 'Ödeme başarısız')}
+        
+        # Find checkout session
+        session = await db.checkout_sessions.find_one({"token": token})
+        if not session:
+            raise HTTPException(status_code=404, detail="Checkout oturumu bulunamadı")
+        
+        user = await db.users.find_one({"id": session["user_id"]})
+        if not user:
+            raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+        
+        now = datetime.now(timezone.utc)
+        next_payment = now + timedelta(days=30)
+        
+        subscription_doc = {
+            "id": str(uuid.uuid4()),
+            "user_id": session["user_id"],
+            "iyzico_payment_id": result.get('paymentId'),
+            "card_last_four": result.get('lastFourDigits', '****'),
+            "status": "active",
+            "plan_name": "Pro",
+            "amount": 100,
+            "currency": "TRY",
+            "period": "monthly",
+            "paid_price": float(result.get('paidPrice', 100)),
+            "next_payment_date": next_payment.isoformat(),
+            "created_at": now.isoformat()
+        }
+        
+        await db.subscriptions.insert_one(subscription_doc)
+        await db.users.update_one(
+            {"id": session["user_id"]},
+            {"$set": {"subscription_status": "active"}}
+        )
+        await db.checkout_sessions.update_one(
+            {"token": token},
+            {"$set": {"status": "completed"}}
+        )
+        
+        return {"status": "success", "message": "Abonelik başarıyla oluşturuldu"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Checkout callback error: {str(e)}")
+        return {"status": "failed", "message": str(e)}
 
 @api_router.post("/subscription/cancel")
 async def cancel_subscription(current_user: dict = Depends(get_auth_user)):

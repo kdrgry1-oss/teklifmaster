@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSearchParams } from 'react-router-dom';
 import { subscriptionAPI, formatDate } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -23,6 +24,7 @@ import {
 
 const Subscription = () => {
   const { user, updateUser } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [subscriptionData, setSubscriptionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -37,6 +39,22 @@ const Subscription = () => {
   });
 
   useEffect(() => {
+    // Check for callback status
+    const status = searchParams.get('status');
+    const error = searchParams.get('error');
+    
+    if (status === 'success') {
+      toast.success('Ödeme başarılı! Aboneliğiniz aktif.');
+      updateUser({ ...user, subscription_status: 'active' });
+      setSearchParams({});
+    } else if (status === 'failed') {
+      toast.error(error || 'Ödeme başarısız oldu');
+      setSearchParams({});
+    } else if (status === 'error') {
+      toast.error('Ödeme işlemi sırasında bir hata oluştu');
+      setSearchParams({});
+    }
+    
     fetchSubscription();
   }, []);
 
@@ -63,22 +81,77 @@ const Subscription = () => {
       return;
     }
 
+    // Validate card number
+    const cleanCardNumber = cardData.card_number.replace(/\s/g, '');
+    if (cleanCardNumber.length < 15 || cleanCardNumber.length > 16) {
+      toast.error('Geçersiz kart numarası');
+      return;
+    }
+
+    // Validate expire date
+    const month = parseInt(cardData.expire_month);
+    if (month < 1 || month > 12) {
+      toast.error('Geçersiz son kullanma ayı');
+      return;
+    }
+
     setProcessing(true);
     try {
       const data = {
         ...cardData,
-        card_number: cardData.card_number.replace(/\s/g, ''),
+        card_number: cleanCardNumber,
+        expire_year: cardData.expire_year.length === 2 ? '20' + cardData.expire_year : cardData.expire_year,
       };
       
-      await subscriptionAPI.subscribe(data);
-      toast.success('Abonelik başarıyla oluşturuldu!');
-      setDialogOpen(false);
-      fetchSubscription();
+      const response = await subscriptionAPI.subscribe(data);
       
-      // Update user status
-      updateUser({ ...user, subscription_status: 'active' });
+      // Check if 3D Secure is required
+      if (response.data.status === '3ds_required' && response.data.threeds_html_content) {
+        // Open 3D Secure in a new window or iframe
+        const threeDSWindow = window.open('', '_blank', 'width=500,height=600');
+        if (threeDSWindow) {
+          threeDSWindow.document.write(response.data.threeds_html_content);
+          threeDSWindow.document.close();
+          
+          toast.info('3D Secure doğrulaması için yeni pencereyi kontrol edin');
+          setDialogOpen(false);
+          
+          // Poll for completion
+          const checkInterval = setInterval(async () => {
+            try {
+              const statusResponse = await subscriptionAPI.getStatus();
+              if (statusResponse.data.status === 'active') {
+                clearInterval(checkInterval);
+                toast.success('Ödeme başarılı! Aboneliğiniz aktif.');
+                fetchSubscription();
+                updateUser({ ...user, subscription_status: 'active' });
+              }
+            } catch (e) {
+              // Continue polling
+            }
+          }, 3000);
+          
+          // Stop polling after 5 minutes
+          setTimeout(() => clearInterval(checkInterval), 300000);
+        } else {
+          toast.error('Popup engelleyici aktif. Lütfen popup engelleyiciyi kapatın.');
+        }
+      } else {
+        toast.success('Ödeme başarılı! Aboneliğiniz aktif.');
+        setDialogOpen(false);
+        setCardData({
+          card_holder_name: '',
+          card_number: '',
+          expire_month: '',
+          expire_year: '',
+          cvc: '',
+        });
+        fetchSubscription();
+        updateUser({ ...user, subscription_status: 'active' });
+      }
     } catch (error) {
-      toast.error('Abonelik oluşturulamadı');
+      const errorMessage = error.response?.data?.detail || 'Ödeme işlemi başarısız oldu. Lütfen kart bilgilerinizi kontrol edin.';
+      toast.error(errorMessage);
     } finally {
       setProcessing(false);
     }

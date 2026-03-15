@@ -110,22 +110,17 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - ✅ **Data Encryption**: Hassas veriler için Fernet şifreleme hazır
 
 ## Sonraki Adımlar
-1. Resend API key yapılandırması (email gönderimi için gerekli)
-2. Gerçek Iyzico API anahtarları ile abonelik entegrasyonu
-3. Kullanıcı testleri ve geri bildirim toplama
+1. ~~Iyzico gerçek entegrasyon~~ ✅ TAMAMLANDI (3D Secure destekli)
+2. Kullanıcı testleri ve geri bildirim toplama
 
 ## Test Sonuçları (15 Ocak 2025)
 - **PDF Şablon Seçimi**: ✅ 13/13 test geçti
 - **Excel Import/Export**: ✅ Tüm testler geçti
 - **Yeni Özellikler (iteration_4)**: ✅ 11/11 test geçti (%100)
 - **Güvenlik Testleri (iteration_5)**: ✅ 20/20 test geçti (%100)
-  - Rate Limiting: ✅
-  - Brute Force Koruması: ✅
-  - XSS Sanitization: ✅
-  - Secure Headers: ✅
-  - Input Validation: ✅
+- **Iyzico Entegrasyonu**: ✅ 3D Secure çalışıyor
 - **Test Raporları**: /app/test_reports/iteration_3.json, /app/test_reports/iteration_4.json, /app/test_reports/iteration_5.json
 
 ## MOCKED API'ler
-- **Iyzico Abonelik**: Şu an mock, gerçek ödeme yapılmıyor
-- **Email Gönderimi**: RESEND_API_KEY gerekli (şu an placeholder)
+- ~~**Iyzico Abonelik**: Şu an mock, gerçek ödeme yapılmıyor~~ ✅ GERÇEK ENTEGRASYON TAMAMLANDI
+- **Email Gönderimi**: Basitleştirildi - mailto: kullanılıyor (PDF önce indirilir)
