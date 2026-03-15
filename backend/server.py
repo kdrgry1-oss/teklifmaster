@@ -107,6 +107,8 @@ class BankAccountCreate(BaseModel):
     bank_name: str
     iban: str
     account_holder: Optional[str] = None
+    currency: str = "TRY"
+    account_type: str = "checking"  # checking, savings, foreign
 
 class BankAccountResponse(BaseModel):
     id: str
@@ -114,6 +116,8 @@ class BankAccountResponse(BaseModel):
     bank_name: str
     iban: str
     account_holder: Optional[str] = None
+    currency: str = "TRY"
+    account_type: str = "checking"
     created_at: str
 
 class QuoteItemCreate(BaseModel):
