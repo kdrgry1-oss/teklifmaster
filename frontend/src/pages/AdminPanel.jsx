@@ -30,6 +30,7 @@ import {
   XCircle,
   Clock,
   Percent,
+  Shield,
 } from 'lucide-react';
 
 const AdminPanel = () => {
