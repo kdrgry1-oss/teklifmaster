@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, status, Query, BackgroundTasks
 from fastapi.responses import FileResponse, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -15,6 +15,9 @@ import bcrypt
 from io import BytesIO
 import base64
 import json
+import asyncio
+import secrets
+import resend
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -24,6 +27,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import openpyxl
 from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 import tempfile
 import aiofiles
 
@@ -39,6 +43,12 @@ db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'quotemaster-secret-key-2024')
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24
+
+# Resend Email Settings
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
 
 # Create the main app
 app = FastAPI(title="QuoteMaster Pro API")
@@ -80,6 +90,10 @@ class UserUpdate(BaseModel):
     company_phone: Optional[str] = None
     company_tax_number: Optional[str] = None
     pdf_template: Optional[str] = None
+    # PDF Ayarları
+    pdf_show_images: Optional[bool] = None
+    pdf_image_size: Optional[str] = None  # small, medium, large
+    pdf_description_length: Optional[str] = None  # full, short, hidden
 
 class ProductCreate(BaseModel):
     name: str
@@ -143,6 +157,9 @@ class QuoteCreate(BaseModel):
     validity_days: int = 30
     notes: Optional[str] = None
     include_vat: bool = True
+    # Genel İskonto
+    general_discount_type: Optional[str] = None  # percent, amount, None
+    general_discount_value: float = 0.0
 
 class QuoteUpdate(BaseModel):
     customer_id: Optional[str] = None
@@ -156,6 +173,23 @@ class QuoteUpdate(BaseModel):
     validity_days: Optional[int] = None
     notes: Optional[str] = None
     include_vat: Optional[bool] = None
+    # Genel İskonto
+    general_discount_type: Optional[str] = None
+    general_discount_value: Optional[float] = None
+
+# Password Reset Models
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+class PasswordResetConfirm(BaseModel):
+    token: str
+    new_password: str
+
+# Email Share Models
+class EmailShareRequest(BaseModel):
+    quote_id: str
+    recipient_email: EmailStr
+    message: Optional[str] = None
 
 # Customer Models
 class CustomerCreate(BaseModel):
@@ -205,6 +239,9 @@ class QuoteResponse(BaseModel):
     subtotal: float
     total_vat: float
     total: float
+    general_discount_type: Optional[str] = None
+    general_discount_value: float = 0.0
+    general_discount_amount: float = 0.0
     validity_date: str
     notes: Optional[str] = None
     include_vat: bool
@@ -280,6 +317,9 @@ async def register(user_data: UserCreate):
         "company_phone": None,
         "company_tax_number": None,
         "pdf_template": "classic",
+        "pdf_show_images": True,
+        "pdf_image_size": "medium",
+        "pdf_description_length": "full",
         "trial_end_date": trial_end.isoformat(),
         "subscription_status": "trial",
         "created_at": datetime.now(timezone.utc).isoformat()
@@ -330,6 +370,112 @@ async def upload_logo(file: UploadFile = File(...), current_user: dict = Depends
     await db.users.update_one({"id": current_user["id"]}, {"$set": {"company_logo": data_url}})
     
     return {"logo_url": data_url}
+
+# ============== PASSWORD RESET ==============
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(request: PasswordResetRequest):
+    """Request password reset email"""
+    user = await db.users.find_one({"email": request.email})
+    if not user:
+        # Don't reveal if email exists
+        return {"message": "Şifre sıfırlama linki e-posta adresinize gönderildi"}
+    
+    # Generate reset token
+    reset_token = secrets.token_urlsafe(32)
+    expires = datetime.now(timezone.utc) + timedelta(hours=1)
+    
+    # Store token
+    await db.password_resets.insert_one({
+        "user_id": user["id"],
+        "token": reset_token,
+        "expires": expires.isoformat(),
+        "used": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    
+    # Send email if Resend is configured
+    if RESEND_API_KEY and RESEND_API_KEY != 're_your_api_key_here':
+        frontend_url = os.environ.get('FRONTEND_URL', 'https://quote-master-pro.preview.emergentagent.com')
+        reset_link = f"{frontend_url}/reset-password?token={reset_token}"
+        
+        html_content = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #0F172A; padding: 20px; text-align: center;">
+                <h1 style="color: #F97316; margin: 0;">QuoteMaster Pro</h1>
+            </div>
+            <div style="padding: 30px; background: #f8fafc;">
+                <h2 style="color: #1e293b;">Şifre Sıfırlama</h2>
+                <p style="color: #475569;">Merhaba,</p>
+                <p style="color: #475569;">Şifrenizi sıfırlamak için aşağıdaki butona tıklayın:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{reset_link}" style="background: #F97316; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: bold;">Şifremi Sıfırla</a>
+                </div>
+                <p style="color: #64748b; font-size: 14px;">Bu link 1 saat geçerlidir.</p>
+                <p style="color: #64748b; font-size: 14px;">Bu isteği siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>
+            </div>
+        </div>
+        """
+        
+        try:
+            params = {
+                "from": SENDER_EMAIL,
+                "to": [request.email],
+                "subject": "QuoteMaster Pro - Şifre Sıfırlama",
+                "html": html_content
+            }
+            await asyncio.to_thread(resend.Emails.send, params)
+        except Exception as e:
+            logging.error(f"Failed to send password reset email: {e}")
+    
+    return {"message": "Şifre sıfırlama linki e-posta adresinize gönderildi"}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(request: PasswordResetConfirm):
+    """Reset password with token"""
+    reset_doc = await db.password_resets.find_one({
+        "token": request.token,
+        "used": False
+    })
+    
+    if not reset_doc:
+        raise HTTPException(status_code=400, detail="Geçersiz veya süresi dolmuş token")
+    
+    expires = datetime.fromisoformat(reset_doc["expires"].replace("Z", "+00:00"))
+    if expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Token süresi dolmuş")
+    
+    # Update password
+    hashed_password = bcrypt.hashpw(request.new_password.encode(), bcrypt.gensalt()).decode()
+    await db.users.update_one(
+        {"id": reset_doc["user_id"]},
+        {"$set": {"password": hashed_password}}
+    )
+    
+    # Mark token as used
+    await db.password_resets.update_one(
+        {"token": request.token},
+        {"$set": {"used": True}}
+    )
+    
+    return {"message": "Şifreniz başarıyla güncellendi"}
+
+@api_router.get("/auth/verify-reset-token")
+async def verify_reset_token(token: str):
+    """Verify if reset token is valid"""
+    reset_doc = await db.password_resets.find_one({
+        "token": token,
+        "used": False
+    })
+    
+    if not reset_doc:
+        raise HTTPException(status_code=400, detail="Geçersiz token")
+    
+    expires = datetime.fromisoformat(reset_doc["expires"].replace("Z", "+00:00"))
+    if expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Token süresi dolmuş")
+    
+    return {"valid": True}
 
 # ============== PRODUCT ENDPOINTS ==============
 
@@ -486,6 +632,91 @@ async def import_products_excel(file: UploadFile = File(...), current_user: dict
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Excel dosyası okunamadı: {str(e)}")
+
+@api_router.get("/products/template/excel")
+async def download_excel_template():
+    """Download empty Excel template for product import"""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Ürünler"
+    
+    # Headers
+    headers = ["SKU", "Ürün Adı", "Açıklama", "Birim", "Birim Fiyat", "KDV Oranı (%)"]
+    header_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.border = thin_border
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Example rows
+    example_data = [
+        ["PRD-001", "Web Tasarım Hizmeti", "Kurumsal web sitesi tasarımı", "adet", 5000, 20],
+        ["PRD-002", "Logo Tasarım", "Profesyonel logo tasarımı", "adet", 1500, 20],
+        ["PRD-003", "SEO Danışmanlık", "Aylık SEO optimizasyon hizmeti", "ay", 2000, 20],
+        ["PRD-004", "Sosyal Medya Yönetimi", "Haftalık içerik üretimi ve yönetim", "ay", 3000, 20],
+    ]
+    
+    for row_idx, row_data in enumerate(example_data, 2):
+        for col_idx, value in enumerate(row_data, 1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            cell.border = thin_border
+            if col_idx in [5, 6]:  # Numeric columns
+                cell.alignment = Alignment(horizontal='right')
+    
+    # Set column widths
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 25
+    ws.column_dimensions['C'].width = 35
+    ws.column_dimensions['D'].width = 10
+    ws.column_dimensions['E'].width = 12
+    ws.column_dimensions['F'].width = 15
+    
+    # Add instructions sheet
+    ws2 = wb.create_sheet("Açıklamalar")
+    instructions = [
+        ["QuoteMaster Pro - Ürün İçe Aktarma Şablonu"],
+        [""],
+        ["Kullanım Talimatları:"],
+        ["1. 'Ürünler' sayfasındaki örnek verileri silin ve kendi ürünlerinizi girin"],
+        ["2. SKU (Stok Kodu) alanı opsiyoneldir, ancak güncelleme için benzersiz olmalıdır"],
+        ["3. Ürün Adı zorunludur"],
+        ["4. Birim seçenekleri: adet, m, m2, kg, lt, saat, gun, ay, paket"],
+        ["5. KDV Oranı: 0, 1, 10, 20 değerlerinden birini kullanın"],
+        [""],
+        ["Önemli Notlar:"],
+        ["- Aynı SKU ile kayıtlı ürün varsa, bilgiler güncellenir"],
+        ["- Yeni SKU veya SKU boş ise yeni ürün oluşturulur"],
+        ["- İlk satır (başlık) otomatik olarak atlanır"],
+    ]
+    
+    for row_idx, row in enumerate(instructions, 1):
+        cell = ws2.cell(row=row_idx, column=1, value=row[0] if row else "")
+        if row_idx == 1:
+            cell.font = Font(bold=True, size=14)
+        elif row_idx == 3 or row_idx == 10:
+            cell.font = Font(bold=True)
+    
+    ws2.column_dimensions['A'].width = 70
+    
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=quotemaster_urun_sablonu.xlsx"}
+    )
 
 # ============== BANK ACCOUNT ENDPOINTS ==============
 
@@ -654,6 +885,9 @@ async def create_quote(quote_data: QuoteCreate, current_user: dict = Depends(get
         "bank_accounts": bank_accounts,
         "subtotal": round(subtotal, 2),
         "total_vat": round(total_vat, 2),
+        "general_discount_type": quote_data.general_discount_type,
+        "general_discount_value": quote_data.general_discount_value,
+        "general_discount_amount": 0,
         "total": round(subtotal + total_vat, 2),
         "validity_date": validity_date.isoformat(),
         "notes": quote_data.notes,
@@ -662,6 +896,16 @@ async def create_quote(quote_data: QuoteCreate, current_user: dict = Depends(get
         "created_at": now.isoformat(),
         "updated_at": now.isoformat()
     }
+    
+    # Apply general discount
+    if quote_data.general_discount_type and quote_data.general_discount_value > 0:
+        base_total = subtotal + total_vat
+        if quote_data.general_discount_type == "percent":
+            general_discount_amount = base_total * (quote_data.general_discount_value / 100)
+        else:  # amount
+            general_discount_amount = quote_data.general_discount_value
+        quote_doc["general_discount_amount"] = round(general_discount_amount, 2)
+        quote_doc["total"] = round(base_total - general_discount_amount, 2)
     
     await db.quotes.insert_one(quote_doc)
     del quote_doc["_id"]
@@ -749,6 +993,27 @@ async def update_quote(quote_id: str, quote_data: QuoteUpdate, current_user: dic
         update_dict["total_vat"] = round(total_vat, 2)
         update_dict["total"] = round(subtotal + total_vat, 2)
     
+    # Update general discount
+    if quote_data.general_discount_type is not None:
+        update_dict["general_discount_type"] = quote_data.general_discount_type
+    if quote_data.general_discount_value is not None:
+        update_dict["general_discount_value"] = quote_data.general_discount_value
+    
+    # Recalculate total with general discount
+    final_subtotal = update_dict.get("subtotal", existing.get("subtotal", 0))
+    final_vat = update_dict.get("total_vat", existing.get("total_vat", 0))
+    discount_type = update_dict.get("general_discount_type", existing.get("general_discount_type"))
+    discount_value = update_dict.get("general_discount_value", existing.get("general_discount_value", 0))
+    
+    if discount_type and discount_value and discount_value > 0:
+        base_total = final_subtotal + final_vat
+        if discount_type == "percent":
+            general_discount_amount = base_total * (discount_value / 100)
+        else:
+            general_discount_amount = discount_value
+        update_dict["general_discount_amount"] = round(general_discount_amount, 2)
+        update_dict["total"] = round(base_total - general_discount_amount, 2)
+    
     update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     await db.quotes.update_one({"id": quote_id}, {"$set": update_dict})
@@ -818,9 +1083,20 @@ def format_currency_pdf(amount):
     """Format currency for PDF"""
     return f"{amount:,.2f} TL".replace(",", "X").replace(".", ",").replace("X", ".")
 
-def generate_pdf_with_template(quote, user, template_id="classic"):
-    """Generate PDF with specified template"""
+def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=None):
+    """Generate PDF with specified template and settings"""
     template = PDF_TEMPLATES.get(template_id, PDF_TEMPLATES["classic"])
+    
+    # PDF Settings defaults
+    if pdf_settings is None:
+        pdf_settings = {}
+    show_images = pdf_settings.get('pdf_show_images', user.get('pdf_show_images', True))
+    image_size = pdf_settings.get('pdf_image_size', user.get('pdf_image_size', 'medium'))
+    description_length = pdf_settings.get('pdf_description_length', user.get('pdf_description_length', 'full'))
+    
+    # Image size mapping
+    image_sizes = {'small': 1*cm, 'medium': 1.5*cm, 'large': 2*cm}
+    img_size = image_sizes.get(image_size, 1.5*cm)
     
     # Format dates
     created_date = datetime.fromisoformat(quote["created_at"].replace("Z", "+00:00")).strftime("%d.%m.%Y")
@@ -841,10 +1117,27 @@ def generate_pdf_with_template(quote, user, template_id="classic"):
     
     elements = []
     
-    # Header Section
+    # Header Section with Logo
+    company_logo = user.get('company_logo')
+    header_left_content = []
+    
+    if company_logo and company_logo.startswith('data:'):
+        try:
+            # Decode base64 logo
+            header_data = company_logo.split(',')[1]
+            logo_data = base64.b64decode(header_data)
+            logo_buffer = BytesIO(logo_data)
+            logo_img = RLImage(logo_buffer, width=3*cm, height=3*cm, kind='proportional')
+            header_left_content.append(logo_img)
+            header_left_content.append(Spacer(1, 5))
+        except Exception as e:
+            logging.error(f"Failed to load logo: {e}")
+    
+    header_left_content.append(Paragraph(f"<b>{user.get('company_name', 'Sirket')}</b>", styles['Title2']))
+    
     header_data = [
         [
-            Paragraph(f"<b>{user.get('company_name', 'Sirket')}</b>", styles['Title2']),
+            header_left_content,
             Paragraph(quote['quote_number'], styles['QuoteNumber'])
         ],
         [
@@ -922,23 +1215,32 @@ def generate_pdf_with_template(quote, user, template_id="classic"):
     elements.append(items_table)
     elements.append(Spacer(1, 10))
     
-    # Totals Section
+    # Totals Section with General Discount
     totals_data = [
         ['Ara Toplam:', format_currency_pdf(quote['subtotal'])],
         ['KDV Toplami:', format_currency_pdf(quote['total_vat'])],
-        ['GENEL TOPLAM:', format_currency_pdf(quote['total'])],
     ]
     
+    # Add general discount if exists
+    if quote.get('general_discount_type') and quote.get('general_discount_amount', 0) > 0:
+        discount_label = f"Genel Iskonto ({quote['general_discount_value']}{'%' if quote['general_discount_type'] == 'percent' else ' TL'}):"
+        totals_data.append([discount_label, f"-{format_currency_pdf(quote['general_discount_amount'])}"])
+    
+    totals_data.append(['GENEL TOPLAM:', format_currency_pdf(quote['total'])])
+    
     totals_table = Table(totals_data, colWidths=[10*cm, 6*cm])
+    
+    # Style based on number of rows
+    total_row = len(totals_data) - 1
     totals_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('FONTNAME', (0, 0), (-1, 1), 'Helvetica'),
-        ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 1), 9),
-        ('FONTSIZE', (0, 2), (-1, 2), 12),
-        ('TEXTCOLOR', (1, 2), (1, 2), colors.HexColor(template['accent'])),
-        ('LINEABOVE', (0, 2), (-1, 2), 2, colors.HexColor(template['primary'])),
+        ('FONTNAME', (0, 0), (-1, total_row - 1), 'Helvetica'),
+        ('FONTNAME', (0, total_row), (-1, total_row), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, total_row - 1), 9),
+        ('FONTSIZE', (0, total_row), (-1, total_row), 12),
+        ('TEXTCOLOR', (1, total_row), (1, total_row), colors.HexColor(template['accent'])),
+        ('LINEABOVE', (0, total_row), (-1, total_row), 2, colors.HexColor(template['primary'])),
         ('TOPPADDING', (0, 0), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
     ]))
@@ -1026,6 +1328,93 @@ async def generate_quote_pdf(quote_id: str, current_user: dict = Depends(get_aut
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+# ============== EMAIL SHARING ==============
+
+@api_router.post("/quotes/{quote_id}/share/email")
+async def share_quote_email(quote_id: str, request: EmailShareRequest, current_user: dict = Depends(get_auth_user)):
+    """Share quote via email with PDF attachment"""
+    if not RESEND_API_KEY or RESEND_API_KEY == 're_your_api_key_here':
+        raise HTTPException(status_code=400, detail="Email servisi yapılandırılmamış. Lütfen RESEND_API_KEY ekleyin.")
+    
+    quote = await db.quotes.find_one({"id": quote_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not quote:
+        raise HTTPException(status_code=404, detail="Teklif bulunamadı")
+    
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password": 0})
+    
+    # Generate PDF
+    template_id = user.get("pdf_template", "classic")
+    pdf_buffer = generate_pdf_with_template(quote, user, template_id)
+    pdf_content = pdf_buffer.getvalue()
+    pdf_base64 = base64.b64encode(pdf_content).decode()
+    
+    # Build email HTML
+    custom_message = request.message or ""
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background: #0F172A; padding: 20px; text-align: center;">
+            <h1 style="color: #F97316; margin: 0;">{user.get('company_name', 'QuoteMaster Pro')}</h1>
+        </div>
+        <div style="padding: 30px; background: #f8fafc;">
+            <h2 style="color: #1e293b;">Fiyat Teklifi</h2>
+            <p style="color: #475569;">Sayın {quote['customer_name']},</p>
+            <p style="color: #475569;">{quote['quote_number']} numaralı teklifimizi ekte bulabilirsiniz.</p>
+            {f'<p style="color: #475569;">{custom_message}</p>' if custom_message else ''}
+            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #64748b;">Teklif No:</td>
+                        <td style="padding: 8px 0; font-weight: bold; text-align: right;">{quote['quote_number']}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #64748b;">Toplam:</td>
+                        <td style="padding: 8px 0; font-weight: bold; color: #F97316; text-align: right;">{format_currency_pdf(quote['total'])}</td>
+                    </tr>
+                </table>
+            </div>
+            <p style="color: #475569;">Sorularınız için bize ulaşabilirsiniz.</p>
+            <p style="color: #475569;">İyi günler dileriz.</p>
+            <p style="color: #64748b; margin-top: 30px; font-size: 12px;">
+                {user.get('company_name', '')}<br/>
+                {user.get('company_phone', '') or ''}<br/>
+                {user.get('company_address', '') or ''}
+            </p>
+        </div>
+    </div>
+    """
+    
+    try:
+        filename = f"Teklif_{quote['quote_number']}.pdf"
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [request.recipient_email],
+            "subject": f"{quote['quote_number']} - {user.get('company_name', 'QuoteMaster Pro')} Fiyat Teklifi",
+            "html": html_content,
+            "attachments": [
+                {
+                    "filename": filename,
+                    "content": pdf_base64,
+                }
+            ]
+        }
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        
+        # Update quote status to sent if it was draft
+        if quote.get('status') == 'draft':
+            await db.quotes.update_one(
+                {"id": quote_id},
+                {"$set": {"status": "sent", "updated_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        
+        return {
+            "status": "success",
+            "message": f"Teklif {request.recipient_email} adresine gönderildi",
+            "email_id": result.get("id") if isinstance(result, dict) else str(result)
+        }
+    except Exception as e:
+        logging.error(f"Failed to send quote email: {e}")
+        raise HTTPException(status_code=500, detail=f"Email gönderilemedi: {str(e)}")
 
 # ============== DASHBOARD STATS ==============
 

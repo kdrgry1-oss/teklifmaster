@@ -46,6 +46,9 @@ export const authAPI = {
     });
   },
   getPdfTemplates: () => api.get('/pdf-templates'),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token, new_password) => api.post('/auth/reset-password', { token, new_password }),
+  verifyResetToken: (token) => api.get(`/auth/verify-reset-token?token=${token}`),
 };
 
 // Products
@@ -69,6 +72,7 @@ export const productsAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  downloadTemplate: () => api.get('/products/template/excel', { responseType: 'blob' }),
 };
 
 // Customers
@@ -96,6 +100,11 @@ export const quotesAPI = {
   updateStatus: (id, status) => api.put(`/quotes/${id}/status?status=${status}`),
   delete: (id) => api.delete(`/quotes/${id}`),
   getPdf: (id) => api.get(`/quotes/${id}/pdf`, { responseType: 'blob' }),
+  shareEmail: (quoteId, recipientEmail, message) => api.post(`/quotes/${quoteId}/share/email`, {
+    quote_id: quoteId,
+    recipient_email: recipientEmail,
+    message: message,
+  }),
 };
 
 // Dashboard

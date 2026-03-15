@@ -6,8 +6,10 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Textarea } from '../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Switch } from '../components/ui/switch';
 import { toast } from 'sonner';
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, Save, Image, FileText, Check } from 'lucide-react';
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, Save, Image, FileText, Check, Settings2 } from 'lucide-react';
 
 const PDF_TEMPLATES = [
   {
@@ -52,6 +54,7 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [savingPdfSettings, setSavingPdfSettings] = useState(false);
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -62,6 +65,13 @@ const Settings = () => {
   });
 
   const [selectedTemplate, setSelectedTemplate] = useState(user?.pdf_template || 'classic');
+  
+  // PDF Settings
+  const [pdfSettings, setPdfSettings] = useState({
+    pdf_show_images: user?.pdf_show_images ?? true,
+    pdf_image_size: user?.pdf_image_size || 'medium',
+    pdf_description_length: user?.pdf_description_length || 'full',
+  });
 
   const handleSave = async () => {
     if (!formData.company_name) {
@@ -117,6 +127,22 @@ const Settings = () => {
       setSelectedTemplate(user?.pdf_template || 'classic');
     } finally {
       setSavingTemplate(false);
+    }
+  };
+
+  const handlePdfSettingChange = async (key, value) => {
+    const newSettings = { ...pdfSettings, [key]: value };
+    setPdfSettings(newSettings);
+    setSavingPdfSettings(true);
+    try {
+      const response = await authAPI.updateProfile({ [key]: value });
+      updateUser(response.data);
+      toast.success('PDF ayarı güncellendi');
+    } catch (error) {
+      toast.error('Ayar kaydedilemedi');
+      setPdfSettings(pdfSettings);
+    } finally {
+      setSavingPdfSettings(false);
     }
   };
 
@@ -192,6 +218,84 @@ const Settings = () => {
             <div className="mt-4 flex items-center gap-2 text-sm text-orange-600">
               <Loader2 className="w-4 h-4 animate-spin" />
               Şablon kaydediliyor...
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PDF Detail Settings */}
+      <Card data-testid="pdf-settings-card">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Settings2 className="w-5 h-5" />
+            PDF Detay Ayarları
+          </CardTitle>
+          <CardDescription>
+            PDF tekliflerinin içerik görünümünü özelleştirin
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Show Product Images */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Ürün Görselleri</Label>
+              <p className="text-sm text-slate-500">PDF'te ürün görsellerini göster</p>
+            </div>
+            <Switch
+              checked={pdfSettings.pdf_show_images}
+              onCheckedChange={(checked) => handlePdfSettingChange('pdf_show_images', checked)}
+              data-testid="pdf-show-images-switch"
+            />
+          </div>
+          
+          {/* Image Size */}
+          {pdfSettings.pdf_show_images && (
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-base">Görsel Boyutu</Label>
+                <p className="text-sm text-slate-500">Ürün görsellerinin boyutu</p>
+              </div>
+              <Select
+                value={pdfSettings.pdf_image_size}
+                onValueChange={(value) => handlePdfSettingChange('pdf_image_size', value)}
+              >
+                <SelectTrigger className="w-32" data-testid="pdf-image-size-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="small">Küçük</SelectItem>
+                  <SelectItem value="medium">Orta</SelectItem>
+                  <SelectItem value="large">Büyük</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
+          {/* Description Length */}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-base">Ürün Açıklaması</Label>
+              <p className="text-sm text-slate-500">Açıklama metninin uzunluğu</p>
+            </div>
+            <Select
+              value={pdfSettings.pdf_description_length}
+              onValueChange={(value) => handlePdfSettingChange('pdf_description_length', value)}
+            >
+              <SelectTrigger className="w-32" data-testid="pdf-description-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="full">Tam Metin</SelectItem>
+                <SelectItem value="short">Kısa (50 karakter)</SelectItem>
+                <SelectItem value="hidden">Gizle</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {savingPdfSettings && (
+            <div className="flex items-center gap-2 text-sm text-orange-600">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Ayar kaydediliyor...
             </div>
           )}
         </CardContent>

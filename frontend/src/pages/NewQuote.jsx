@@ -10,6 +10,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { Skeleton } from '../components/ui/skeleton';
 import { Switch } from '../components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { toast } from 'sonner';
 import {
   ArrowLeft,
@@ -57,6 +58,8 @@ const NewQuote = () => {
     notes: '',
     include_vat: true,
     selectedBanks: [],
+    general_discount_type: null,
+    general_discount_value: 0,
   });
 
   const [items, setItems] = useState([]);
@@ -91,6 +94,8 @@ const NewQuote = () => {
           notes: quote.notes || '',
           include_vat: quote.include_vat,
           selectedBanks: quote.bank_accounts?.map(b => b.id) || [],
+          general_discount_type: quote.general_discount_type || null,
+          general_discount_value: quote.general_discount_value || 0,
         });
         setItems(quote.items.map(item => ({
           product_id: item.product_id,
@@ -201,6 +206,19 @@ const NewQuote = () => {
     { subtotal: 0, vat: 0, total: 0 }
   );
 
+  // Calculate general discount
+  const calculateGeneralDiscount = () => {
+    if (!formData.general_discount_type || !formData.general_discount_value) return 0;
+    const baseTotal = totals.total;
+    if (formData.general_discount_type === 'percent') {
+      return baseTotal * (formData.general_discount_value / 100);
+    }
+    return parseFloat(formData.general_discount_value) || 0;
+  };
+
+  const generalDiscountAmount = calculateGeneralDiscount();
+  const finalTotal = totals.total - generalDiscountAmount;
+
   const handleSubmit = async () => {
     if (!formData.customer_name) {
       toast.error('Müşteri adı zorunludur');
@@ -224,6 +242,8 @@ const NewQuote = () => {
         notes: formData.notes || null,
         include_vat: formData.include_vat,
         bank_account_ids: formData.selectedBanks,
+        general_discount_type: formData.general_discount_type,
+        general_discount_value: parseFloat(formData.general_discount_value) || 0,
         items: items.map((item) => ({
           product_id: item.product_id,
           product_name: item.product_name,
@@ -688,9 +708,55 @@ const NewQuote = () => {
                     <span className="font-mono">{formatCurrency(totals.vat)}</span>
                   </div>
                 )}
+                {generalDiscountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-emerald-600">
+                    <span>Genel İskonto</span>
+                    <span className="font-mono">-{formatCurrency(generalDiscountAmount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-lg font-bold pt-2 border-t">
                   <span>Genel Toplam</span>
-                  <span className="font-mono text-orange-500">{formatCurrency(totals.total)}</span>
+                  <span className="font-mono text-orange-500">{formatCurrency(finalTotal)}</span>
+                </div>
+              </div>
+
+              {/* General Discount */}
+              <div className="space-y-3 pt-4 border-t">
+                <Label className="flex items-center gap-2">
+                  <Percent className="w-4 h-4" />
+                  Genel İskonto
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Select
+                    value={formData.general_discount_type || 'none'}
+                    onValueChange={(value) => setFormData({ 
+                      ...formData, 
+                      general_discount_type: value === 'none' ? null : value,
+                      general_discount_value: value === 'none' ? 0 : formData.general_discount_value
+                    })}
+                  >
+                    <SelectTrigger data-testid="general-discount-type">
+                      <SelectValue placeholder="Tür seçin" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">İskonto Yok</SelectItem>
+                      <SelectItem value="percent">Yüzde (%)</SelectItem>
+                      <SelectItem value="amount">Tutar (TL)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {formData.general_discount_type && (
+                    <Input
+                      type="number"
+                      min="0"
+                      step={formData.general_discount_type === 'percent' ? '1' : '0.01'}
+                      max={formData.general_discount_type === 'percent' ? '100' : undefined}
+                      value={formData.general_discount_value}
+                      onChange={(e) => setFormData({ ...formData, general_discount_value: e.target.value })}
+                      placeholder={formData.general_discount_type === 'percent' ? '%' : '₺'}
+                      className="text-right font-mono"
+                      data-testid="general-discount-value"
+                    />
+                  )}
                 </div>
               </div>
 

@@ -176,6 +176,15 @@ const Login = () => {
                         'Giriş Yap'
                       )}
                     </Button>
+                    <div className="text-center">
+                      <Link 
+                        to="/forgot-password" 
+                        className="text-sm text-primary hover:underline"
+                        data-testid="forgot-password-link"
+                      >
+                        Şifremi unuttum
+                      </Link>
+                    </div>
                   </form>
                 </TabsContent>
 

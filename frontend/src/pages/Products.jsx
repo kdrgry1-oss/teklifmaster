@@ -169,6 +169,22 @@ const Products = () => {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await productsAPI.downloadTemplate();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'quotemaster_urun_sablonu.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Şablon indirildi');
+    } catch (error) {
+      toast.error('Şablon indirilemedi');
+    }
+  };
+
   const handleImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -259,7 +275,11 @@ const Products = () => {
           <h1 className="text-2xl font-bold text-slate-900">Ürün Kataloğu</h1>
           <p className="text-slate-500">{products.length} ürün</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={handleDownloadTemplate} data-testid="download-template-btn">
+            <Download className="w-4 h-4 mr-2" />
+            Şablon
+          </Button>
           <Button variant="outline" onClick={handleExport} data-testid="export-btn">
             <Download className="w-4 h-4 mr-2" />
             Excel
