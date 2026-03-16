@@ -1733,31 +1733,84 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     elements.append(Spacer(1, 20))
     
     # Items Section
-    elements.append(Paragraph("TEKLIF DETAYLARI", styles['SectionTitle']))
+    elements.append(Paragraph("TEKLİF DETAYLARI", styles['SectionTitle']))
     
-    items_data = [['#', 'Urun/Hizmet', 'Miktar', 'Birim Fiyat', 'Iskonto', 'KDV', 'Toplam']]
+    # Determine columns based on whether images are shown
+    if show_images:
+        items_data = [['#', 'Görsel', 'Ürün/Hizmet', 'Miktar', 'Birim Fiyat', 'İskonto', 'KDV', 'Toplam']]
+        col_widths = [0.8*cm, 1.8*cm, 4*cm, 1.8*cm, 2.2*cm, 1.3*cm, 1.3*cm, 2.3*cm]
+    else:
+        items_data = [['#', 'Ürün/Hizmet', 'Miktar', 'Birim Fiyat', 'İskonto', 'KDV', 'Toplam']]
+        col_widths = [1*cm, 5*cm, 2*cm, 2.5*cm, 1.5*cm, 1.5*cm, 2.5*cm]
     
     for idx, item in enumerate(quote["items"], 1):
         discount_str = f"%{item['discount_percent']}" if item["discount_percent"] > 0 else "-"
-        items_data.append([
-            str(idx),
-            item['product_name'],
-            f"{item['quantity']} {item['unit']}",
-            format_currency_pdf(item['unit_price']),
-            discount_str,
-            f"%{int(item['vat_rate'])}",
-            format_currency_pdf(item['total'])
-        ])
+        
+        # Prepare product name with description
+        product_cell = item['product_name']
+        if item.get('description') and description_length != 'none':
+            desc = item['description']
+            if description_length == 'short' and len(desc) > 50:
+                desc = desc[:50] + "..."
+            product_cell = Paragraph(f"<b>{item['product_name']}</b><br/><font size=7 color='#6B7280'>{desc}</font>", styles['Normal2'])
+        else:
+            product_cell = Paragraph(f"<b>{item['product_name']}</b>", styles['Normal2'])
+        
+        if show_images:
+            # Try to load product image
+            image_cell = ""
+            if item.get('image_url'):
+                try:
+                    import urllib.request
+                    # Download image to buffer
+                    with urllib.request.urlopen(item['image_url'], timeout=5) as response:
+                        img_data = response.read()
+                        img_buffer = BytesIO(img_data)
+                        image_cell = RLImage(img_buffer, width=img_size, height=img_size, kind='proportional')
+                except Exception as e:
+                    logging.warning(f"Could not load product image: {e}")
+                    image_cell = ""
+            elif item.get('image') and item['image'].startswith('data:'):
+                try:
+                    img_header = item['image'].split(',')[1]
+                    img_data = base64.b64decode(img_header)
+                    img_buffer = BytesIO(img_data)
+                    image_cell = RLImage(img_buffer, width=img_size, height=img_size, kind='proportional')
+                except Exception as e:
+                    logging.warning(f"Could not load product image: {e}")
+                    image_cell = ""
+            
+            items_data.append([
+                str(idx),
+                image_cell,
+                product_cell,
+                f"{item['quantity']} {item['unit']}",
+                format_currency_pdf(item['unit_price']),
+                discount_str,
+                f"%{int(item['vat_rate'])}",
+                format_currency_pdf(item['total'])
+            ])
+        else:
+            items_data.append([
+                str(idx),
+                product_cell,
+                f"{item['quantity']} {item['unit']}",
+                format_currency_pdf(item['unit_price']),
+                discount_str,
+                f"%{int(item['vat_rate'])}",
+                format_currency_pdf(item['total'])
+            ])
     
-    items_table = Table(items_data, colWidths=[1*cm, 5*cm, 2*cm, 2.5*cm, 1.5*cm, 1.5*cm, 2.5*cm])
+    items_table = Table(items_data, colWidths=col_widths)
     items_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor(template['primary'])),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, 0), bold_font),
         ('FONTSIZE', (0, 0), (-1, 0), 8),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-        ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('ALIGN', (-4, 0), (-1, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 1), (-1, -1), default_font),
         ('FONTSIZE', (0, 1), (-1, -1), 8),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
         ('TOPPADDING', (0, 0), (-1, -1), 8),
@@ -1770,7 +1823,7 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     # Totals Section with General Discount
     totals_data = [
         ['Ara Toplam:', format_currency_pdf(quote['subtotal'])],
-        ['KDV Toplami:', format_currency_pdf(quote['total_vat'])],
+        ['KDV Toplamı:', format_currency_pdf(quote['total_vat'])],
     ]
     
     # Add general discount if exists
@@ -1787,8 +1840,8 @@ def generate_pdf_with_template(quote, user, template_id="classic", pdf_settings=
     totals_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('FONTNAME', (0, 0), (-1, total_row - 1), 'Helvetica'),
-        ('FONTNAME', (0, total_row), (-1, total_row), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 0), (-1, total_row - 1), default_font),
+        ('FONTNAME', (0, total_row), (-1, total_row), bold_font),
         ('FONTSIZE', (0, 0), (-1, total_row - 1), 9),
         ('FONTSIZE', (0, total_row), (-1, total_row), 12),
         ('TEXTCOLOR', (1, total_row), (1, total_row), colors.HexColor(template['accent'])),
@@ -2253,9 +2306,15 @@ async def subscription_callback(request: Request):
                 }
                 
                 await db.subscriptions.insert_one(subscription_doc)
+                
+                # Set trial end date to 7 days from now for new subscribers
+                trial_end = now + timedelta(days=7)
                 await db.users.update_one(
                     {"id": user_id},
-                    {"$set": {"subscription_status": "active"}}
+                    {"$set": {
+                        "subscription_status": "active",
+                        "trial_end_date": trial_end.isoformat()
+                    }}
                 )
                 await db.pending_payments.delete_one({"conversation_id": conversation_id})
                 
@@ -2371,9 +2430,15 @@ async def checkout_callback(token: str):
         }
         
         await db.subscriptions.insert_one(subscription_doc)
+        
+        # Set trial end date to 7 days from now for new subscribers
+        trial_end = now + timedelta(days=7)
         await db.users.update_one(
             {"id": session["user_id"]},
-            {"$set": {"subscription_status": "active"}}
+            {"$set": {
+                "subscription_status": "active",
+                "trial_end_date": trial_end.isoformat()
+            }}
         )
         await db.checkout_sessions.update_one(
             {"token": token},

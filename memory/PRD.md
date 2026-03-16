@@ -1,7 +1,9 @@
-# QuoteMaster Pro - PRD (Product Requirements Document)
+# TeklifMaster Pro - PRD (Product Requirements Document)
 
 ## Proje Özeti
 KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile toplu fiyat güncelleyebildiği ve saniyeler içinde kurumsal PDF teklifleri oluşturup WhatsApp/Email üzerinden paylaşabildiği bulut tabanlı bir SaaS platformu.
+
+**Domain**: teklifmaster.com
 
 ## Kullanıcı Personaları
 1. **KOBİ Satış Temsilcisi**: Günlük 5-10 teklif hazırlayan, müşterilere hızlı dönüş yapmak isteyen profesyonel
@@ -10,84 +12,94 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 
 ## Temel Gereksinimler (Statik)
 - Kullanıcı kimlik doğrulama (JWT tabanlı)
-- 7 günlük ücretsiz deneme süresi
+- 7 günlük ücretsiz deneme süresi (satın alma sonrasında da geçerli)
 - Ürün kataloğu yönetimi (CRUD, görsel, birim, KDV, fiyat)
 - Excel ile toplu import/export
 - Banka hesabı/IBAN yönetimi
 - Profesyonel PDF teklif oluşturma
 - WhatsApp Web ve Email ile paylaşım
 - Abonelik sistemi (Iyzico entegrasyonu)
+- iOS/Android mobil uygulama
 
-## Uygulanan Özellikler (14-15 Ocak 2025)
+## Uygulanan Özellikler
 
 ### Backend (FastAPI + MongoDB)
 - [x] JWT tabanlı kullanıcı kimlik doğrulama (register/login)
-- [x] **Şifre Sıfırlama** (/api/auth/forgot-password, /api/auth/reset-password) ✓ NEW
+- [x] Şifre Sıfırlama (SMTP ile)
 - [x] Kullanıcı profili ve şirket bilgileri yönetimi
-- [x] Logo yükleme (Base64) + **PDF'e logo ekleme** ✓ NEW
-- [x] Ürün CRUD API'leri + **görsel yükleme**
-- [x] **Excel import/export** + **Şablon indirme** (/api/products/template/excel) ✓ NEW
+- [x] Logo yükleme (Base64) + PDF'e logo ekleme
+- [x] Ürün CRUD API'leri + görsel yükleme + görsel URL desteği
+- [x] Excel import/export + Şablon indirme
 - [x] Banka hesabı CRUD API'leri
-- [x] **Müşteri CRUD API'leri** (search destekli)
+- [x] Müşteri CRUD API'leri (search destekli)
 - [x] Teklif oluşturma/listeleme/detay API'leri
-- [x] **Teklif düzenleme (PUT /api/quotes/{id})**
-- [x] **Genel İskonto** (% ve TL bazlı) ✓ NEW
-- [x] **Müşteri vergi numarası desteği**
-- [x] Teklif hesaplama (satır iskonto, KDV dahil/hariç)
-- [x] **PDF Şablon Sistemi** (5 farklı şablon: Klasik, Modern, Profesyonel, Zarif, Okyanus)
-- [x] **Gelişmiş PDF Ayarları** (görsel göster/gizle, boyut, açıklama uzunluğu) ✓ NEW
-- [x] PDF teklif oluşturma (ReportLab ile) + **vergi no gösterimi**
-- [x] **Email ile Teklif Paylaşımı** (Resend entegrasyonu) ✓ NEW
+- [x] Teklif düzenleme (PUT /api/quotes/{id})
+- [x] Genel İskonto (% ve TL bazlı)
+- [x] Müşteri vergi numarası desteği
+- [x] **PDF Türkçe Karakter Desteği** (TurkishFont) ✓ YENİ
+- [x] **PDF'de Ürün Görselleri** ✓ YENİ
+- [x] PDF Şablon Sistemi (5 farklı şablon)
+- [x] Gelişmiş PDF Ayarları (görsel göster/gizle, boyut, açıklama uzunluğu)
 - [x] Dashboard istatistikleri API
-- [x] **Rapor API'si** (tarih aralığı, dönüşüm oranı, ciro analizi)
-- [x] Iyzico abonelik mock entegrasyonu
+- [x] Rapor API'si (tarih aralığı, dönüşüm oranı, ciro analizi)
+- [x] **Iyzico 3D Secure Entegrasyonu** (Canlı)
+- [x] **7 Günlük Deneme Süresi** (satın alma sonrası otomatik tanımlama) ✓ YENİ
+- [x] **Admin Paneli API'leri** (kullanıcı yönetimi, kupon, kampanya, fraud)
+- [x] **Kupon Sistemi** (% ve TL indirim)
+- [x] **Dolandırıcılık Önleme** (IP, fingerprint, telefon kontrolü)
+- [x] **Toplu Email Kampanyası** (SMTP)
 
 ### Frontend (React + Tailwind + shadcn/ui)
-- [x] Login/Register sayfası (split-screen tasarım)
-- [x] **Şifremi Unuttum sayfası** (/forgot-password) ✓ NEW
-- [x] **Şifre Sıfırlama sayfası** (/reset-password) ✓ NEW
+- [x] Login/Register sayfası
+- [x] Şifremi Unuttum sayfası
 - [x] Dashboard (Bento grid, özet metrikler, son teklifler)
-- [x] Ürün Kataloğu (grid görünüm, arama, CRUD modali, **görsel yükleme**)
-- [x] **Excel Import/Export + Şablon İndirme Butonları** ✓ NEW
-- [x] **Müşteriler sayfası** (CRUD, arama - isim/email/VKN)
+- [x] Ürün Kataloğu (grid görünüm, arama, CRUD, görsel yükleme, **ürün klonlama**)
+- [x] Excel Import/Export + Şablon İndirme
+- [x] Müşteriler sayfası (CRUD, arama)
 - [x] Teklifler listesi (filtreleme, durum badge'leri)
-- [x] Yeni Teklif oluşturma (**müşteri seçimi**, vergi no, **çoklu ürün seçimi/arama**)
-- [x] **Genel İskonto UI** (% ve TL seçimi) ✓ NEW
-- [x] **Teklif düzenleme** (/quotes/:id/edit)
-- [x] Teklif detay sayfası (PDF indirme, **Email dialog**, **WhatsApp paylaşımı**)
-- [x] **Raporlar sayfası** (tarih aralığı, teklif sayıları, dönüşüm oranı, ciro, top müşteriler)
+- [x] Yeni Teklif oluşturma (zorunlu teklif adı, müşteri seçimi, çoklu ürün seçimi)
+- [x] Genel İskonto UI (% ve TL seçimi)
+- [x] Teklif düzenleme
+- [x] Teklif detay sayfası (PDF indirme, Email, WhatsApp paylaşımı)
+- [x] Raporlar sayfası
 - [x] Banka Hesapları yönetimi
-- [x] **Şirket Ayarları sayfası** (logo yükleme + **PDF şablon seçimi** + **PDF Detay Ayarları**) ✓ NEW
-- [x] Abonelik sayfası (mock ödeme formu)
+- [x] Şirket Ayarları sayfası (logo, PDF şablon, PDF ayarları)
+- [x] **Abonelik sayfası** (aylık ₺299, yıllık ₺2990, kupon desteği)
+- [x] **Admin Paneli** (kullanıcı/kupon/kampanya/fraud yönetimi)
+- [x] **Landing Page** (TeklifMaster markalı)
+- [x] **Kullanım Sözleşmesi** sayfası
 - [x] Responsive sidebar navigasyon
 - [x] Türkçe arayüz
 
+### Mobil Uygulama (React Native + Expo) ✓ YENİ
+- [x] Login/Register ekranı (sözleşme onayı dahil)
+- [x] Dashboard (istatistikler, hızlı işlemler)
+- [x] Teklifler listesi ve detay
+- [x] Yeni Teklif oluşturma
+- [x] PDF indirme ve paylaşma
+- [x] Müşteriler yönetimi
+- [x] Ürünler/Hizmetler yönetimi
+- [x] Profil ve abonelik durumu
+- [x] Ayarlar ekranı
+- [x] Bottom tab navigation
+
 ## Önceliklendirilmiş Backlog
 
-### P0 (Kritik - Sonraki Sprint)
-- [ ] Gerçek Iyzico API entegrasyonu
-- [ ] Resend API key yapılandırması (email gönderimi aktif hale getirilecek)
+### P0 (Kritik - Tamamlandı)
+- [x] ~~Gerçek Iyzico API entegrasyonu~~ ✓
+- [x] ~~PDF Türkçe karakter düzeltmesi~~ ✓
+- [x] ~~Mobil uygulama temel yapısı~~ ✓
 
 ### P1 (Yüksek Öncelik)
-- [x] ~~Ürün görseli yükleme~~ ✓
-- [x] ~~Teklif düzenleme özelliği~~ ✓
-- [x] ~~Müşteri veritabanı~~ ✓
-- [x] ~~Teklif şablonları~~ ✓ (5 farklı PDF şablonu)
-- [x] ~~PDF'e şirket logosu ekleme~~ ✓
-- [x] ~~Şifre sıfırlama~~ ✓
-- [x] ~~WhatsApp/Email ile teklif paylaşımı~~ ✓
-- [x] ~~Genel iskonto (% ve TL)~~ ✓
-- [x] ~~Gelişmiş PDF ayarları~~ ✓
-- [x] ~~Excel şablon indirme~~ ✓
+- [ ] Mobil uygulama testleri ve App Store/Play Store yayını
+- [ ] PDF'de ürün görseli testleri (canlı ortam)
 
 ### P2 (Orta Öncelik)
-- [x] ~~Raporlama ve analitik dashboard~~ ✓
 - [ ] Çoklu para birimi desteği (döviz kuru API)
 - [ ] Teklif revizyon geçmişi
 - [ ] E-imza entegrasyonu
 
 ### P3 (Düşük Öncelik)
-- [ ] Mobil uygulama
 - [ ] API erişimi (3. taraf entegrasyonlar)
 - [ ] Çoklu kullanıcı/ekip desteği
 
@@ -95,32 +107,74 @@ KOBİ ve freelancerların ürün kataloglarını yönetebildiği, Excel ile topl
 - **Frontend**: React 19, Tailwind CSS, shadcn/ui, Axios
 - **Backend**: FastAPI, Motor (async MongoDB), Pydantic
 - **Database**: MongoDB
-- **PDF Engine**: ReportLab
+- **PDF Engine**: ReportLab + DejaVu/Liberation fonts
 - **Auth**: JWT (PyJWT, bcrypt)
-- **Security**: Cryptography (Fernet), Rate Limiting, XSS Protection
-- **Payment**: Iyzico (mock - gerçek entegrasyon bekliyor)
+- **Security**: Cryptography (Fernet), Rate Limiting, XSS Protection, Fingerprinting
+- **Payment**: Iyzico (3D Secure - Canlı)
+- **Mobile**: React Native, Expo, React Navigation
+- **Email**: SMTP (Hostinger)
 
-## Güvenlik Özellikleri (15 Ocak 2025)
-- ✅ **Rate Limiting**: 60 istek/dakika limiti
-- ✅ **Brute Force Koruması**: 5 başarısız giriş → 15 dakika IP bloklama
-- ✅ **XSS Koruması**: HTML escape + regex pattern filtreleme
-- ✅ **Secure Headers**: X-Frame-Options (DENY), X-Content-Type-Options, X-XSS-Protection
-- ✅ **Input Validation**: Ürün, müşteri, IBAN doğrulama
-- ✅ **Audit Logging**: Kritik işlemlerin kaydı
-- ✅ **Data Encryption**: Hassas veriler için Fernet şifreleme hazır
+## Güvenlik Özellikleri
+- ✅ Rate Limiting: 60 istek/dakika limiti
+- ✅ Brute Force Koruması: 5 başarısız giriş → 15 dakika IP bloklama
+- ✅ XSS Koruması: HTML escape + regex pattern filtreleme
+- ✅ Secure Headers
+- ✅ Input Validation
+- ✅ Audit Logging
+- ✅ Data Encryption: Fernet şifreleme
+- ✅ Anti-Fraud: IP logging, fingerprint, telefon/şirket adı kontrolü
 
-## Sonraki Adımlar
-1. ~~Iyzico gerçek entegrasyon~~ ✅ TAMAMLANDI (3D Secure destekli)
-2. Kullanıcı testleri ve geri bildirim toplama
+## Fiyatlandırma
+- Aylık: ₺299
+- Yıllık: ₺2990 (2 ay tasarruf)
+- 7 günlük ücretsiz deneme (herkes için)
 
-## Test Sonuçları (15 Ocak 2025)
-- **PDF Şablon Seçimi**: ✅ 13/13 test geçti
-- **Excel Import/Export**: ✅ Tüm testler geçti
-- **Yeni Özellikler (iteration_4)**: ✅ 11/11 test geçti (%100)
-- **Güvenlik Testleri (iteration_5)**: ✅ 20/20 test geçti (%100)
-- **Iyzico Entegrasyonu**: ✅ 3D Secure çalışıyor
-- **Test Raporları**: /app/test_reports/iteration_3.json, /app/test_reports/iteration_4.json, /app/test_reports/iteration_5.json
+## Dosya Yapısı
+```
+/app/
+├── backend/
+│   ├── .env
+│   ├── server.py         # Ana FastAPI uygulama (3000+ satır)
+│   └── requirements.txt
+├── frontend/
+│   └── src/
+│       ├── api.js
+│       ├── App.js
+│       ├── components/
+│       │   └── layout/
+│       │       ├── Landing.jsx
+│       │       └── Layout.jsx
+│       └── pages/
+│           ├── AdminPanel.jsx
+│           ├── NewQuote.jsx
+│           ├── Products.jsx
+│           ├── Subscription.jsx
+│           └── Terms.jsx
+├── mobile/               # React Native mobil uygulama
+│   ├── App.js
+│   ├── package.json
+│   └── src/
+│       ├── config.js
+│       ├── context/AuthContext.js
+│       ├── navigation/RootNavigator.js
+│       ├── screens/
+│       │   ├── LoginScreen.js
+│       │   ├── DashboardScreen.js
+│       │   ├── QuotesScreen.js
+│       │   ├── QuoteDetailScreen.js
+│       │   ├── NewQuoteScreen.js
+│       │   ├── CustomersScreen.js
+│       │   ├── CustomerDetailScreen.js
+│       │   ├── ProductsScreen.js
+│       │   ├── ProductDetailScreen.js
+│       │   ├── ProfileScreen.js
+│       │   └── SettingsScreen.js
+│       └── services/api.js
+└── docker-compose.yml
+```
 
-## MOCKED API'ler
-- ~~**Iyzico Abonelik**: Şu an mock, gerçek ödeme yapılmıyor~~ ✅ GERÇEK ENTEGRASYON TAMAMLANDI
-- **Email Gönderimi**: Basitleştirildi - mailto: kullanılıyor (PDF önce indirilir)
+## Son Güncelleme: Aralık 2025
+- PDF Türkçe karakter desteği düzeltildi (ş, ğ, ı, ü, ö, ç)
+- PDF'de ürün görselleri gösterme özelliği eklendi
+- 7 günlük deneme süresi satın alma sonrası da tanımlanıyor
+- React Native mobil uygulama geliştirildi (iOS/Android)

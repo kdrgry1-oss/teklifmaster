@@ -1,167 +1,216 @@
 <analysis>**original_problem_statement:**
-QuoteMaster Pro, a subscription-based quote management system for SMEs and freelancers. Key features include:
-- **Product Catalog:** Manage a library of products with images, units (pcs, m, kg), VAT rates, and prices.
-- **Subscription Model:** A Pro membership at 100 TL/month, using Iyzico's Subscription API for payments, with a 7-day trial period.
-- **Bank Account Management:** Users can add multiple bank accounts/IBANs and select which ones to display on a quote.
-- **Excel Integration:** Bulk import/export functionality for updating product prices via Excel.
-- **Quote Generation:** Create professional PDF quotes with accurate calculations (discounts, totals, VAT).
-- **Sharing:** Share generated PDFs via WhatsApp and Email.
-- **PDF Design:** Minimalist, high-end corporate look with company logo and letterhead design.
-- **Customer Management:** A dedicated section to manage clients, who can be searched and selected when creating a quote.
-- **Reporting:** A dashboard to track quote status (sent, accepted, pending) and revenue from accepted quotes within a date range.
-- **Customization:** Allow users to choose from different PDF templates for their quotes.
+The user wants to build a subscription-based quote management system, TeklifMaster Pro, for the domain .
+
+**Initial Vision:**
+- Product Catalog, Subscription Model (Iyzico), Bank Account Management, Excel Import/Export, PDF Quote Generation, Quote Sharing, Customer Management, Reporting Dashboard, and Custom PDF Templates.
+
+**Recent User Requests (Implemented/In Progress):**
+1.  **Deployment & Bug Fixes:** Deploy the application to a live Ubuntu server and fix critical post-deployment bugs (Registration, Iyzico payments, Admin Panel access).
+2.  **Branding & UI:** Create a new landing page, rebrand QuoteMaster to TeklifMaster, remove all Emergent branding, and add a favicon.
+3.  **Core Features:**
+    *   **Admin Panel:** Create a panel for the admin to view/manage users, subscriptions, and block IPs.
+    *   **Pricing Update:** Change pricing to ₺299/month and ₺2990/year.
+    *   **Coupon System:** Allow the admin to create coupon codes for discounts.
+    *   **Email Campaigns:** Enable the admin to send bulk emails to users via SMTP.
+    *   **Manual Quote Naming:** Force users to manually name each quote they create.
+    *   **Product Cloning:** Add a feature to clone existing products/services.
+    *   **PDF Improvements:** Fix Turkish character encoding issues and add a created by teklifmaster.com footer.
+    *   **User Agreement:** Add a terms of service page and require user consent at registration.
+4.  **Security:** Implement a comprehensive system to prevent trial abuse, including IP logging, company name/phone checks, and browser fingerprinting.
+5.  **Excel Import:** Enhance Excel import to include a URL for product/service images.
+6.  **Mobile App:** Create a full-featured native mobile application for iOS and Android.
 
 **User's preferred language**: Turkish
 
 **what currently exists?**
-A full-stack application (FastAPI, React, MongoDB) has been built, delivering a significant portion of the requested features.
-- **Backend**: A single  file contains all API endpoints and data models for users, products (with images and currency), customers, bank accounts (with account types), quotes, and reporting. PDF generation is handled by the  library.
-- **Frontend**: A complete set of React pages provides a user interface for all implemented features, including authentication, a dashboard, and management screens for products, customers, bank accounts, quotes, and settings. It uses Shadcn/UI for components and React Router for navigation.
-- **Implemented Features**: User authentication, CRUD for products, customers, and bank accounts, quote creation with multi-product/customer search, quote editing, a reporting dashboard, and PDF generation are all functional. Recent additions include currency support for products and enhanced IBAN/account type options.
+- A full-stack web application (React, FastAPI, MongoDB) deployed and running on the user's live Ubuntu server.
+- The web app includes user authentication, Iyzico-based subscriptions (monthly/yearly), product/customer/quote management, PDF generation, an admin panel, a coupon system, email campaign functionality, and an anti-abuse system.
+- A new React Native project has been initiated in the  directory using Expo for building the iOS/Android mobile app. The initial project structure and dependencies are set up.
 
 **Last working item**:
-    - Last item agent was working: The agent just finished implementing a feature to allow users to select different PDF templates. This involved:
-        1.  **Backend**: Updating the  model to store the chosen template, creating a new endpoint () to list available templates, and rewriting the PDF generation logic in  to be template-aware.
-        2.  **Frontend**: Overhauling the  page to display and select PDF templates, with API calls to fetch options and save the user's preference.
+    - Last item agent was working: The agent was initializing a new React Native project to build a mobile application for both iOS and Android, as requested by the user. The agent created a new  directory and used Expo to set up the boilerplate project.
     - Status: IN PROGRESS
     - Agent Testing Done: N
-    - Which testing method agent to use? both
+    - Which testing method agent to use? The agent cannot directly test a mobile application. The next agent must build the application features and then provide the user with clear, step-by-step instructions on how to run the Expo development server and test the app on their own device or simulator.
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  - Issue 1:  (Verify PDF template selection feature (P0))
+  - Issue 1:  Admin Panel is inaccessible (P0)
+  - Issue 2:  PDFs have Turkish character rendering errors (P1)
+  - Issue 3:  Mobile web header button Ücretsiz Dene (Try for free) does not fit on screen (P2)
   
   Issues Detail:
   - Issue 1: 
-     - Attempted fixes: The feature has been fully coded on both the backend and frontend, and the services have been restarted. No fixes have been attempted as no bugs have been identified yet.
+     - Attempted fixes: The agent added a missing  icon import in  and refactored the navigation logic to wait for the user object to load. The user reported the page is still blank.
      - Next debug checklist: 
-        1.  Log in to the application.
-        2.  Navigate to the  page.
-        3.  Verify that the new PDF template selection UI loads correctly with preview images.
-        4.  Select a template different from the default.
-        5.  Create a new quote and download the PDF.
-        6.  Confirm the generated PDF matches the style of the selected template.
-     - Why fix this issue and what will be achieved with the fix? This is the last feature requested by the user in the current batch of work. Verifying its functionality will complete the task.
-     - Status:  TESTING PENDING
+        1.  Open the browser's developer console on the blank Admin Panel page on the live site to check for JavaScript errors.
+        2.  Inspect  again for potential race conditions or state management issues. The  logic might still be faulty.
+        3.  Check network requests to see if API calls from the admin page are failing.
+     - Why fix this issue and what will be achieved with the fix? The Admin Panel is critical for user management, viewing subscription statuses, and using the fraud-prevention tools. It's a core feature that is currently broken.
+     - Status:  IN PROGRESS
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix? frontend
+     - Blocked on other issue: None
+  - Issue 2: 
+     - Attempted fixes: The agent has tried multiple solutions. Initially by registering a TTF font () and most recently by switching the PDF generation logic in  to use the 'DejaVu Sans' font, assuming it's pre-installed on the server. The user continues to report that characters like , ,  are still broken in the generated PDFs.
+     - Next debug checklist: 
+        1.  Instruct the user to install the  font package on their Ubuntu server: Reading package lists...
+Building dependency tree...
+Reading state information....
+        2.  Verify the font path in  is correct.
+        3.  Ensure all strings passed to  are properly encoded in UTF-8.
+        4.  Investigate using a different PDF library if  continues to be problematic with fonts.
+     - Why fix this issue and what will be achieved with the fix? The application's main purpose is generating professional quotes. Incorrect characters make the PDFs unusable for business.
+     - Status:  IN PROGRESS
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix? backend
+     - Blocked on other issue: None
+  - Issue 3: 
+     - Attempted fixes: The agent modified  to reduce padding and font size for the buttons in the mobile view header.
+     - Next debug checklist: 
+        1. The user needs to deploy the latest changes and confirm if the fix works on their mobile device. The last deployment did not include this fix.
+     - Why fix this issue and what will be achieved with the fix? Improves the user experience and professionalism of the landing page on mobile devices.
+     - Status:  USER VERIFICATION PENDING
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? both
+     - Should Test frontend/backend/both after fix? frontend
      - Blocked on other issue: None
 
 **In progress Task List**:
+  - Task 1:  Build the React Native mobile application (P0)
+ 
+ Task Detail:
   - Task 1: 
-     - Where to resume: The code is implemented. The next step is to begin testing, starting with a visual check of the  page and then performing an end-to-end test of the PDF generation flow.
-     - What will be achieved with this? Users will be able to customize the appearance of their quotes by selecting from predefined templates.
+     - Where to resume: The Expo project structure is ready in . The next step is to start building the app's architecture: navigation (React Navigation), API service layer to connect to the existing backend, and state management. Begin by implementing the Login/Registration screens.
+     - What will be achieved with this? A cross-platform (iOS/Android) mobile application that allows users to access their TeklifMaster Pro account and features on the go.
      - Status:  IN PROGRESS
      - Should Test frontend/backend/both after fix? both
      - Blocked on something: None
 
 **Upcoming and Future Tasks**
-    Upcoming Tasks:
-    - **Excel Import/Export (P0):** Implement the backend logic for  and  in  and add corresponding buttons/functionality to the  page.
-    
     Future Tasks:
-    - **Iyzico Subscription Integration (P1):** Replace the current mock subscription system with a full Iyzico integration. This requires calling the  for the Iyzico Subscription API and implementing the payment and webhook flows.
-    - **Quote Sharing (P1):** Add functionality to share quotes via WhatsApp and Email, as specified in the original vision.
-    - **Currency Exchange Rate Integration (P2):** As an enhancement to the multi-currency support, integrate a live exchange rate API to provide currency conversions within reports.
+    - Complete the full feature set for the React Native mobile application, mirroring the web application's functionality.
 
 **Completed work in this session**
 - List of all completed tasks with file and method name:
-  - **MVP Foundation**: User Authentication, Product Catalog, Bank Account Management, Quote Creation, and basic PDF Generation (, all initial pages in ).
-  - **Feature Expansion**:
-    - Product Image Upload (, ).
-    - Full Customer Management module with search (, , ).
-    - Quote Editing ().
-    - Reporting Dashboard with date filtering (, ).
-  - **Refinements**:
-    - Product Currency Selection (, ).
-    - IBAN TR prefix and account type selection (, ).
+  - **Critical Bug Fixes**: Resolved live server registration failure (, ).
+  - **Branding & UI Overhaul**: Created a new  page, rebranded all QuoteMaster instances to TeklifMaster, removed Emergent branding, and added a .
+  - **Admin & Security Features**:
+    - Created an  page for user management.
+    - Implemented a comprehensive anti-trial-abuse system using IP logging, phone/company checks, and browser fingerprinting (, ).
+    - Added endpoints for the admin to view fraud reports and block IPs.
+  - **Commercial Features**:
+    - Implemented a coupon system with backend validation (, ).
+    - Added yearly subscription plan and updated pricing (₺299/month, ₺2990/year) across the app.
+    - Fixed a critical Iyzico payment bug where incorrect prices were sent for different plans.
+  - **Core Functionality**:
+    - Implemented a bulk email campaign feature using SMTP.
+    - Switched password reset from Resend to the user's Hostinger SMTP.
+    - Added a mandatory  field for quote creation (, ).
+    - Added a feature to clone products/services (, ).
+    - Updated Excel import to accept an image URL.
+  - **Legal & UX**: Added a  page and a required consent checkbox to the registration form.
+  - **Mobile App**: Initiated the React Native mobile app project using Expo.
 
 - Recently completed:
-  - PDF Template Selection (DONE, pending verification)
+  - Iyzico payment price bug fix (DONE)
+  - Admin Panel UI/UX fixes (ATTEMPTED, BUT STILL BUGGY)
+  - Mobile header layout fix (DONE, PENDING USER VERIFICATION)
+  - Product cloning feature (DONE)
+  - Anti-fraud/abuse system (DONE)
+  - Mobile App project initialization (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-   - None.
+   - **Admin Panel Access (Issue #1)**: Remains unresolved despite attempts. The page is blank for the admin user.
+   - **PDF Character Encoding (Issue #2)**: A persistent, recurring issue. The implemented font changes have not solved the problem.
 
 **Known issue recurrence from previous fork**
-  - None.
+  - None from the previous fork, but the **PDF Turkish character issue** has been a recurring problem throughout this session.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend**: FastAPI, MongoDB (with ), Pydantic models, JWT authentication,  for PDF creation.
-- **Frontend**: React, React Router, Context API for state management, TailwindCSS, Shadcn/UI.
-- **Architecture**: A single-repository project with a monolithic backend () and a page-based React frontend.
+- **Backend**: FastAPI, MongoDB (), Pydantic, JWT, , , , SMTP ().
+- **Frontend**: React, React Router, TailwindCSS, Shadcn/UI.
+- **Mobile**: **React Native**, **Expo**.
+- **Deployment**: Manual on Ubuntu VPS with Nginx, Certbot, systemd, Git.
 
 **key DB schema**
   - **users**: 
-  - **products**: 
-  - **bank_accounts**: 
-  - **customers**: 
   - **quotes**: 
+  - **products**: 
+  - **coupons**:  (New collection)
+  - **blocked_ips**:  (New collection)
+  - **fraud_reports**:  (New collection)
 
 **changes in tech stack**
-  - The PDF generation library was changed from  to  due to system dependency issues ().
+  - **React Native / Expo**: Added for mobile app development.
+  - **smtplib**: Integrated into the backend for sending emails via the user's SMTP server.
 
 **All files of reference**
-- **/app/backend/server.py**: The core backend file containing all API endpoints, data models, and business logic. It has been modified for every feature.
-- **/app/frontend/src/pages/Settings.jsx**: Recently rewritten to handle PDF template selection.
-- **/app/frontend/src/pages/NewQuote.jsx**: Significantly updated to include customer and multi-product search.
-- **/app/frontend/src/lib/api.js**: The central API client, updated to include functions for customers, reports, and PDF templates.
-- **/app/memory/PRD.md**: The project requirements document.
+- : Heavily modified with new endpoints for admin, coupons, campaigns, fraud detection, and mobile support.
+- : New admin panel, but currently inaccessible.
+- : New landing page.
+- : Updated for yearly plans and coupon codes.
+- : Updated with Ürün / Hizmet text and cloning functionality.
+- : Added browser fingerprinting logic.
+- : The root directory for the new React Native project.
 
 **Areas that need refactoring**:
-- The  file has grown to over 1100 lines and should be modularized. Breaking it down into separate files for routers (e.g., ), models, and services would greatly improve maintainability.
-- Frontend pages with complex logic, such as  and , could be simplified by extracting logic into custom React hooks (e.g., , ).
+- ****: This monolithic file is now over 3000 lines long and is extremely difficult to maintain. It urgently needs to be broken down into a modular structure using FastAPI's  for different domains (auth, quotes, admin, etc.), with separate files for models and services.
 
 **key api endpoints**
+- , 
+- , 
 - 
--  (GET, POST),  (PUT, DELETE)
--  (GET, POST),  (PUT, DELETE)
--  (GET, POST),  (GET, PUT)
--  (GET)
--  (GET)
--  (GET)
+- , 
+- 
+- 
+-  (now accepts )
+-  (now accepts  and )
 
 **Critical Info for New Agent**
-- The user's language is Turkish. All communication must be in Turkish.
-- The immediate priority is to test the newly implemented PDF template feature. This is the last task in the current user request.
-- The backend logic is concentrated in a single large file: .
-- The  library must be used for any PDF-related work. Do not use .
-- Several major features from the original plan are still pending, notably the full Iyzico integration and Excel import/export.
+- You are continuing development on a **live production application**. All code changes must be pushed to the user's GitHub, and the user must be instructed on how to pull and deploy them on their Ubuntu server.
+- **The top priority task is to build the React Native mobile app.**
+- **There are critical bugs on the live web app that need to be addressed**: The Admin Panel is completely inaccessible (P0), and PDF character encoding is still broken (P1). These must be fixed alongside mobile development.
+- All communication with the user **must be in Turkish**.
 
 **documents and test reports created in this job**
-  - /app/memory/PRD.md
-  - /app/design_guidelines.json
-  - /app/test_reports/iteration_1.json
-  - /app/test_reports/iteration_2.json
+  - None.
 
 **Last 10 User Messages and any pending HUMAN messages** 
- -  1. **User**: Add selectable PDF templates. (Status: Implemented, Testing Pending)
- -  2. **User**: Add TR prefix to IBANs and allow foreign currency accounts. (Status: Completed)
- -  3. **User**: Add currency selection to products. (Status: Completed)
- -  4. **User**: Add product images, customer tax ID, quote editing, reports, and a customer section. (Status: Completed)
- -  5. **User**: Initial project choices. (Status: Acknowledged)
+ -  1. **User**: The product cloning and subscription page fixes are not reflected on the live site. Also, add a product cloning feature. (Status: Addressed, user needs to deploy latest changes).
+ -  2. **User**: My customers should see both monthly and yearly subscription options when they click to subscribe. (Status: Implemented, pending deployment by user).
+ -  3. **User**: Highlight the PDF generation feature more prominently on the landing page. (Status: Implemented, pending deployment by user).
+ -  4. **User**: My email  should be an admin. (Status: Done, admin role granted via shell command).
+ -  5. **User**: New Feature Requests: Fix PDF Turkish characters, add created by link to PDF, add user agreement, change pricing to ₺299/mo and ₺2990/yr. (Status: All implemented, but PDF character issue persists).
+ -  6. **User**: The admin page is blank. (Status: Fix Attempted, issue persists).
+ -  7. **User**: I'm getting a payment error. (Status: Resolved, Iyzico pricing logic fixed).
+ -  8. **User**: Change Product to Product / Service and allow adding image URLs via Excel import. (Status: Implemented).
+ -  9. **User**: Implement measures to prevent users from abusing the free trial. (Status: Implemented).
+ -  10. **User**: I want an iOS app for this. (Status: IN PROGRESS, React Native project started).
 
 **Project Health Check:**
-- **Broken**: None currently known. The application was stable and passed tests before the last feature implementation.
-- **Mocked**: The Iyzico subscription functionality is mocked. The  endpoint simulates a successful subscription without actual payment processing.
+- **Broken**:
+    - The Admin Panel () loads a blank page, making all admin functionality inaccessible.
+    - PDF generation has persistent Turkish character encoding issues.
+- **Mocked**: None.
 
 **3rd Party Integrations**
-- **Iyzico**: Planned for subscription management. Currently mocked.
-- **reportlab**: In use for PDF generation.
-- **openpyxl**: Installed for the planned Excel import/export feature.
+- **Iyzico**: LIVE integration for subscription payments.
+- **SMTP (Hostinger)**: Used for password reset and bulk email campaigns. Credentials are in .
+- **reportlab**: Used for PDF generation (source of character encoding issues).
+- **openpyxl**: Used for Excel import/export.
+- **Expo**: Used for the React Native mobile app development and build process.
 
 **Testing status**
-  - Testing agent used after significant changes: YES
+  - Testing agent used after significant changes: NO
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: []
-  - Known regressions: []
+  - Known regressions: Admin Panel functionality broke and remains broken.
 
 **Credentials to test flow:**
-Register a new user through the UI to obtain credentials for testing.
+- **Admin User**: . The password is known by the user. This account should have access to the (currently broken) admin panel.
 
 **What agent forgot to execute**
-- **Excel Import/Export**: This core requirement from the initial problem statement has been deferred. The backend library is installed, but no implementation exists on the backend or frontend.
-- **Quote Sharing**: The request to share quotes via WhatsApp/Email has not been implemented.
-- **Iyzico Integration**: The user agreed to a mock implementation initially, but the full integration remains a key pending task.</analysis>
+- The agent failed to deliver a definitive fix for the **Admin Panel bug** and the **PDF character encoding issue**, despite multiple attempts. These remain the most critical outstanding problems with the web application.</analysis>
