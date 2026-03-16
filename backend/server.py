@@ -451,6 +451,9 @@ class QuoteItemCreate(BaseModel):
     unit_price: float
     vat_rate: float
     discount_percent: float = 0.0
+    image_url: Optional[str] = None
+    image: Optional[str] = None
+    description: Optional[str] = None
 
 class QuoteCreate(BaseModel):
     quote_name: str
@@ -1384,7 +1387,10 @@ async def create_quote(quote_data: QuoteCreate, current_user: dict = Depends(get
             "discount_percent": item.discount_percent,
             "subtotal": round(item_subtotal_after_discount, 2),
             "vat_amount": round(vat_amount, 2),
-            "total": round(item_total, 2)
+            "total": round(item_total, 2),
+            "image_url": item.image_url,
+            "image": item.image,
+            "description": item.description
         })
         
         subtotal += item_subtotal_after_discount

@@ -157,6 +157,9 @@ const NewQuote = () => {
             unit_price: product.unit_price,
             vat_rate: product.vat_rate,
             discount_percent: 0,
+            image_url: product.image_url || null,
+            image: product.image || null,
+            description: product.description || null,
           },
         ]);
       }
