@@ -603,6 +603,7 @@ class SubscriptionCreate(BaseModel):
     cvc: str
     plan_type: str = "monthly"  # monthly or yearly
     coupon_code: Optional[str] = None
+    callback_url: Optional[str] = None  # Dynamic callback URL from frontend
 
 # Iyzico Checkout Form Request
 class IyzicoCheckoutRequest(BaseModel):
@@ -2141,9 +2142,9 @@ async def create_subscription(card_data: SubscriptionCreate, current_user: dict 
     # Format price for Iyzico (must be string with 2 decimal places)
     price_str = f"{final_price:.2f}"
     
-    # Use the frontend URL for callback
+    # Use callback URL from request or fallback to environment variable
     frontend_url = os.environ.get('FRONTEND_URL', 'https://teklifmaster.com')
-    callback_url = f"{frontend_url}/subscription/callback"
+    callback_url = card_data.callback_url or f"{frontend_url}/subscription/callback"
     
     # Prepare 3D Secure payment request
     payment_card = {
